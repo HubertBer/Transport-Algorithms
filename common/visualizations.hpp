@@ -1,3 +1,6 @@
+#pragma once
+#include <cinttypes>
+
 enum class VisualizationEventType {
     ADD_START_VERTEX,
     ADD_END_VERTEX,

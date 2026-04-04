@@ -40,16 +40,79 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph)
     float scale_x = 1800;
     Vector2 scale = {scale_x, scale_y};
 
+
+    const Color unvisited_color = GRAY;
+    const Color being_visited_color = GREEN;
+    const Color visited_color = BLACK;
+
+    vector<Color> node_color(graph.num_nodes());
+    vector<float> node_radius(graph.num_nodes());
+    vector<Color> edge_color(graph.num_edges());
+    vector<float> edge_width(graph.num_edges());
+    std::cout<< "BRUH" << '\n';
+    for (int i = 0; i < graph.num_nodes(); ++i) {
+        node_color[i] = unvisited_color;
+        node_radius[i] = 8;
+    }
+    for (int i = 0; i < graph.num_edges(); ++i) {
+        edge_color[i] = unvisited_color;
+        edge_width[i] = 4;
+    }
+
+    int event_now = 0;
+    const float time_between_events = 0.5;
+    float next_event_timer = 0;
+    std::cout<< "BRUH" << '\n';
+
+    // We may not need to do it incrementally don't now yet though.
+    auto process_events_tick = [&]() {
+        std::cout<< "PROCESSING_TICK" << '\n';
+        std::cout<< "PROCESSING_TICK " << events.size() << '\n';
+        while(event_now < events.size()) {
+            auto event = events[event_now];
+            event_now += 1;
+            
+            std::cout<< "ANOTHER_EVENT "<< event.id << '\n';
+            switch(event.type) {
+                case VisualizationEventType::ADD_START_VERTEX: break;
+                case VisualizationEventType::ADD_END_VERTEX: break;
+                case VisualizationEventType::START_VISITING_EDGE:
+                    edge_color[event.id] = being_visited_color;
+                    edge_width[event.id] = 7;
+                    break;
+                case VisualizationEventType::END_VISITING_EDGE:
+                    edge_color[event.id] = visited_color;
+                    edge_width[event.id] = 4;
+                    break;
+                case VisualizationEventType::START_VISITING_VERTEX:
+                    node_color[event.id] = being_visited_color;
+                    node_radius[event.id] = 12;
+                    break;
+                case VisualizationEventType::END_VISITING_VERTEX:
+                    node_color[event.id] = visited_color;
+                    node_radius[event.id] = 8;
+                    // The end of the tick
+                    return;
+            }
+        }
+    };
+
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(WHITE);
+
+        next_event_timer -= GetFrameTime();
+        if (next_event_timer < 0) {
+            next_event_timer += time_between_events;
+            process_events_tick();
+        }
 
         for (int i = 0; i < graph.num_nodes(); ++i) {
             for (int j = 0; j < graph.adj[i].size(); ++j) {
                 auto edge = graph.adj[i][j];
                 auto pos0 = positions[i] * scale + origin;
                 auto pos1 = positions[edge.to] * scale + origin;
-                DrawLineEx(pos0, pos1, 4, BLACK);
+                DrawLineEx(pos0, pos1, edge_width[edge.id], edge_color[edge.id]);
             }
         }
 
@@ -57,7 +120,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph)
             auto pos = positions[i];
             pos *= scale;
             pos += origin;
-            DrawCircleV(pos, 10, RED);
+            DrawCircleV(pos, node_radius[i], node_color[i]);
         }
 
         EndDrawing();
@@ -65,38 +128,38 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph)
 }
 
 std::unique_ptr<Algorithm> make_algorithm(const std::string &name) {
-  if (name == "dijkstra")
-    return std::make_unique<Dijkstra>();
-  throw std::invalid_argument("Unknown algorithm: " + name);
+    if (name == "dijkstra")
+        return std::make_unique<Dijkstra>();
+    throw std::invalid_argument("Unknown algorithm: " + name);
 }
 
 int main(int argc, char *argv[]) {
-      std::string data, algo;
-  int source, target;
+    std::string data, algo;
+    int source, target;
 
-  if (argc == 5) {
-    data = argv[1];
-    algo = argv[2];
-    source = std::stoi(argv[3]);
-    target = std::stoi(argv[4]);
-  } else {
-    std::cerr << "Usage: " << argv[0] << "\n"
-              << "       " << argv[0] << " data algo source target\n";
-    return 1;
-  }
+    if (argc == 5) {
+        data = argv[1];
+        algo = argv[2];
+        source = std::stoi(argv[3]);
+        target = std::stoi(argv[4]);
+    } else {
+        std::cerr << "Usage: " << argv[0] << "\n"
+                << "       " << argv[0] << " data algo source target\n";
+        return 1;
+    }
 
-  Graph g = load_graph_from_csv(data);
+    Graph g = load_graph_from_csv(data);
 
-  auto algorithm = make_algorithm(algo);
+    auto algorithm = make_algorithm(algo);
 
-  std::cout << "Algorithm : " << algorithm->name() << '\n'
-            << "Nodes     : " << g.num_nodes() << '\n'
-            << "Edges     : " << g.num_edges() << '\n'
-            << "Source    : " << source << '\n'
-            << "Target    : " << target << '\n';
+    std::cout << "Algorithm : " << algorithm->name() << '\n'
+                << "Nodes     : " << g.num_nodes() << '\n'
+                << "Edges     : " << g.num_edges() << '\n'
+                << "Source    : " << source << '\n'
+                << "Target    : " << target << '\n';
 
-  ShortestPathResult result = algorithm->compute(g, source, target);
+    ShortestPathResult result = algorithm->compute(g, source, target);
 
-  raylib_visualization({}, g);
+    raylib_visualization(result.visualization_events, g);
     return 0;
 }

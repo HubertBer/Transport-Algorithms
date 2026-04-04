@@ -7,7 +7,9 @@
 #include "graph.hpp"
 
 #include <iostream>
+#include <memory>
 #include <vector>
+
 using std::vector;
 
 vector<Vector2> compute_positions(const vector<Vector2> coordinates) {
@@ -34,7 +36,7 @@ vector<Vector2> compute_positions(const vector<Vector2> coordinates) {
 void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph) {
     vector<Vector2> positions = compute_positions(graph.coordinates);
     InitWindow(1920, 1200, "transport algorithm visualization");
-    
+
     Vector2 origin{50, 50};
     float scale_y = 1000;
     float scale_x = 1800;
@@ -71,7 +73,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph)
         while(event_now < events.size()) {
             auto event = events[event_now];
             event_now += 1;
-            
+
             std::cout<< "ANOTHER_EVENT "<< event.id << '\n';
             switch(event.type) {
                 case VisualizationEventType::ADD_START_VERTEX: break;
@@ -127,7 +129,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph)
     }
 }
 
-std::unique_ptr<Algorithm> make_algorithm(const std::string &name) {
+std::unique_ptr<Algorithm> make_algorithm(std::string &name) {
     if (name == "dijkstra")
         return std::make_unique<Dijkstra>();
     throw std::invalid_argument("Unknown algorithm: " + name);

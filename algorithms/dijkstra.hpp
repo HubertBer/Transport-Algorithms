@@ -1,6 +1,7 @@
 #pragma once
 
 #include "algorithm.hpp"
+#include "visualizations.hpp"
 
 #include <algorithm>
 #include <limits>

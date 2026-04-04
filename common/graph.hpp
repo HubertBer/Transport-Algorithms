@@ -1,7 +1,10 @@
 #pragma once
 
-#include <vector>
 #include "raylib.h"
+
+#include <cstdint>
+#include <vector>
+
 struct Edge {
   int to;
   double distance;

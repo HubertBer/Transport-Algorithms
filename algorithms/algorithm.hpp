@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graph.hpp"
+#include "visualizations.hpp"
 
 #include <string>
 #include <vector>
@@ -9,6 +10,7 @@ struct ShortestPathResult {
   std::vector<int> path;
   double distance;
   int visited;
+  std::vector<VisualizationEvent> visualization_events;
 };
 
 class Algorithm {

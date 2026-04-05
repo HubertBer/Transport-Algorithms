@@ -1,0 +1,3 @@
+add_executable(rb_vis raylib_visualizations.cpp)
+target_link_libraries(rb_vis PRIVATE algorithms)
+target_link_libraries(rb_vis PRIVATE raylib)

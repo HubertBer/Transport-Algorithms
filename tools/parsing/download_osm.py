@@ -8,14 +8,13 @@ import pandas as pd
 
 DEFAULT_PLACE = "Kraków, Poland"
 DEFAULT_OUTPUT = "data/maps/krakow"
-ROAD_TYPE = "primary|primary_link"
 
 
 def download_and_export(place: str, output_dir: str) -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     print(f"[1/4] Querying OSM for roads in: {place}")
-    G = ox.graph_from_place(place, custom_filter=f'["highway"~"{ROAD_TYPE}"]')
+    G = ox.graph_from_place(place, network_type="drive")
 
     print("[2/4] Converting to undirected graph …")
     G = ox.convert.to_undirected(G)

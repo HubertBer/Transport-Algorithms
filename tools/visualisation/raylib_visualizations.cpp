@@ -109,7 +109,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     }
 
     int event_now = 0;
-    const float time_between_events = 0.01;
+    float time_between_events = 0.01;
     float next_event_timer = 0;
     uint64_t start_node = 0;
     uint64_t end_node = 0;
@@ -191,9 +191,15 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
 
     Button dijkstra_button = createButton(50, 700, 200, 40, "dijkstra");
     Button a_star_button = createButton(50, 750, 200, 40, "A*");
+    Button faster_button = createButton(300, 700, 150, 40, "FASTER");
+    Button slower_button = createButton(300, 750, 150, 40, "SLOWER");
+    Button reset_button = createButton(300, 800, 150, 40, "RESET");
     auto draw_ui = [&]() {
         drawButton(dijkstra_button);
         drawButton(a_star_button);
+        drawButton(faster_button);
+        drawButton(slower_button);
+        drawButton(reset_button);
         DrawTextStretched(algo.c_str(), 150, 680, 30, BLACK);
     };
 
@@ -203,6 +209,15 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         }
         if (isButtonClicked(a_star_button)) {
             algo = "A*";
+        }
+        if (isButtonClicked(faster_button)) {
+            time_between_events /= 2;
+        }
+        if (isButtonClicked(slower_button)) {
+            time_between_events *= 2;
+        }
+        if (isButtonClicked(reset_button)) {
+            reset_visualization(start_node, end_node);
         }
     };
 
@@ -224,7 +239,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         ClearBackground(WHITE);
 
         next_event_timer -= GetFrameTime();
-        if (next_event_timer < 0) {
+        while (next_event_timer < 0) {
             next_event_timer += time_between_events;
             process_events_tick();
         }

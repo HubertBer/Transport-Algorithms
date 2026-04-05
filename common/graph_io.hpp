@@ -40,7 +40,7 @@ inline Graph load_graph_from_csv(const std::string &dir) {
       std::getline(ss, tok, ',');
       lon = std::stof(tok);
 
-      coords.emplace_back(lat, lon);
+      coords.emplace_back(lon, lat);
       ++num_nodes;
     }
   }
@@ -74,6 +74,8 @@ inline Graph load_graph_from_csv(const std::string &dir) {
       dist = std::stod(tok);
 
       g.add_edge(from, to, dist);
+      // TODO remove later. For now make sure that graph is not actually directed
+      g.add_edge(to, from, dist);
     }
   }
 

@@ -11,6 +11,45 @@
 #include <vector>
 
 using std::vector;
+struct Button {
+    Rectangle bounds;
+    std::string label;
+    int fontSize;
+    Color bgColor;
+    Color textColor;
+};
+
+inline Button createButton(float x, float y, float width, float height, const std::string& label, int fontSize = 30, Color bg = BLACK, Color fg = WHITE) {
+    return Button{{x, y, width, height}, label, fontSize, bg, fg};
+}
+
+inline void DrawTextStretched(const char* text, int posX, int posY, int fontSize, Color color) {
+    float fx = posX;
+    float fy = posY;
+    float size = fontSize;
+    Font f = GetFontDefault();
+    float spacing = 4.0f;
+    Vector2 ts = MeasureTextEx(f, text, size, spacing);
+    DrawTextEx(f, text, { fx - ts.x * 0.5f, fy - size * 0.5f }, size, spacing, color);
+}
+
+inline void drawButton(const Button& button) {
+    Rectangle scaledBounds = button.bounds;
+    DrawRectangleRec(scaledBounds, button.bgColor);
+
+    DrawTextStretched(
+        button.label.c_str(),
+        button.bounds.x + button.bounds.width / 2,
+        button.bounds.y + button.bounds.height / 2,
+        button.fontSize,
+        button.textColor
+    );
+}
+
+inline bool isButtonClicked(const Button& button) {
+    Vector2 mouse = GetMousePosition();
+    return CheckCollisionPointRec(mouse, button.bounds) && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+}
 
 std::unique_ptr<Algorithm> make_algorithm(std::string &name) {
     if (name == "dijkstra")
@@ -135,6 +174,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
             }
         }
     };
+
     auto closest_point_idx = [&](Vector2 screen_pos) {
         float min_dist = Vector2DistanceSqr(screen_pos, origin + positions[0] * scale);
         uint64_t min_idx = 0;
@@ -149,7 +189,25 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         return min_idx;
     };
 
+    Button dijkstra_button = createButton(50, 700, 200, 40, "dijkstra");
+    Button a_star_button = createButton(50, 750, 200, 40, "A*");
+    auto draw_ui = [&]() {
+        drawButton(dijkstra_button);
+        drawButton(a_star_button);
+        DrawTextStretched(algo.c_str(), 150, 680, 30, BLACK);
+    };
+
+    auto handle_ui_logic = [&]() {
+        if (isButtonClicked(dijkstra_button)) {
+            algo = "dijkstra";
+        }
+        if (isButtonClicked(a_star_button)) {
+            algo = "A*";
+        }
+    };
+
     while (!WindowShouldClose()) {
+        handle_ui_logic();
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             Vector2 mouse_pos = GetMousePosition();
             source_picked = closest_point_idx(mouse_pos);
@@ -198,6 +256,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         if (source_picked >= 0) { DrawCircleV(positions[source_picked] * scale + origin, 8, DARKBLUE); }
         if (target_picked >= 0) { DrawCircleV(positions[target_picked] * scale + origin, 8, MAROON); }
         
+        draw_ui();
         EndDrawing();
     }
 }

@@ -4,7 +4,12 @@
 #include "graph_io.hpp"
 #include "raymath.h"
 #include "dijkstra.hpp"
+#include "a_star.hpp"
 #include "graph.hpp"
+
+// TODO maybe add this and add some sliders instead of buttons
+// #define RAYGUI_IMPLEMENTATION
+// #include "raygui.h"
 
 #include <iostream>
 #include <memory>
@@ -52,8 +57,8 @@ inline bool isButtonClicked(const Button& button) {
 }
 
 std::unique_ptr<Algorithm> make_algorithm(std::string &name) {
-    if (name == "dijkstra")
-        return std::make_unique<Dijkstra>();
+    if ( name == "dijkstra" )   return std::make_unique<Dijkstra>();
+    if ( name == "A*" )         return std::make_unique<AStar>();
     throw std::invalid_argument("Unknown algorithm: " + name);
 }
 
@@ -160,7 +165,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
                     break;
                 case VisualizationEventType::END_VISITING_EDGE:
                     edge_color[event.id] = visited_color;
-                    edge_width[event.id] = 0.6;
+                    edge_width[event.id] = 1.5;
                     break;
                 case VisualizationEventType::START_VISITING_VERTEX:
                     node_color[event.id] = being_visited_color;

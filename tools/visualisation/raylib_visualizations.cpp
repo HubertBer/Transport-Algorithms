@@ -6,6 +6,7 @@
 #include "dijkstra.hpp"
 #include "a_star.hpp"
 #include "double_dijkstra.hpp"
+#include "alt.hpp"
 #include "graph.hpp"
 
 // TODO maybe add this and add some sliders instead of buttons
@@ -57,13 +58,15 @@ inline bool isButtonClicked(const Button& button) {
     return CheckCollisionPointRec(mouse, button.bounds) && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
 }
 
-std::unique_ptr<Algorithm> make_algorithm(std::string &name) {
+std::unique_ptr<Algorithm> make_algorithm(std::string &name, const Graph &graph) {
     if (name == "dijkstra")
-        return std::make_unique<Dijkstra>();
+        return std::make_unique<Dijkstra>(graph);
     if (name == "A*")
-        return std::make_unique<AStar>();
+        return std::make_unique<AStar>(graph);
     if (name == "double_dijkstra")
-        return std::make_unique<DoubleDijkstra>();
+        return std::make_unique<DoubleDijkstra>(graph);
+    if (name == "alt")
+        return std::make_unique<Alt>(graph);
     throw std::invalid_argument("Unknown algorithm: " + name);
 }
 
@@ -127,8 +130,9 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     int64_t target_picked = -1;
 
     auto reset_visualization = [&](uint64_t source, uint64_t target){
-        auto algorithm = make_algorithm(algo);
-        auto result = algorithm->compute(graph, source, target);
+        auto algorithm = make_algorithm(algo, graph);
+        algorithm->precompute();
+        auto result = algorithm->query(source, target);
         events = result.visualization_events;
 
         for (int i = 0; i < graph.num_nodes(); ++i) {
@@ -202,6 +206,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     Button dijkstra_button = createButton(50, 700, 200, 40, "dijkstra");
     Button a_star_button = createButton(50, 750, 200, 40, "A*");
     Button double_dijkstra_button = createButton(50, 800, 200, 40, "double_dijkstra");
+    Button alt_button = createButton(50, 850, 200, 40, "alt");
     Button faster_button = createButton(300, 700, 150, 40, "FASTER");
     Button slower_button = createButton(300, 750, 150, 40, "SLOWER");
     Button reset_button = createButton(300, 800, 150, 40, "RESET");
@@ -209,6 +214,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         drawButton(dijkstra_button);
         drawButton(a_star_button);
         drawButton(double_dijkstra_button);
+        drawButton(alt_button);
         drawButton(faster_button);
         drawButton(slower_button);
         drawButton(reset_button);
@@ -224,6 +230,9 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         }
         if (isButtonClicked(double_dijkstra_button)) {
             algo = "double_dijkstra";
+        }
+        if (isButtonClicked(alt_button)) {
+            algo = "alt";
         }
         if (isButtonClicked(faster_button)) {
             time_between_events /= 2;
@@ -308,7 +317,8 @@ int main(int argc, char *argv[]) {
 
     Graph g = load_graph_from_csv(data);
 
-    auto algorithm = make_algorithm(algo);
+    auto algorithm = make_algorithm(algo, g);
+    algorithm->precompute();
 
     std::cout << "Algorithm : " << algorithm->name() << '\n'
                 << "Nodes     : " << g.num_nodes() << '\n'
@@ -316,7 +326,7 @@ int main(int argc, char *argv[]) {
                 << "Source    : " << source << '\n'
                 << "Target    : " << target << '\n';
 
-    ShortestPathResult result = algorithm->compute(g, source, target);
+    ShortestPathResult result = algorithm->query(source, target);
 
     raylib_visualization(result.visualization_events, g, algo);
     return 0;

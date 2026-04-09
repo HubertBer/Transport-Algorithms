@@ -13,21 +13,25 @@ class DoubleDijkstra : public Algorithm {
   constexpr static double INF = std::numeric_limits<double>::infinity();
 
 public:
-  ShortestPathResult compute(const Graph &g, int source,
-                             int target) const override {
+  DoubleDijkstra(const Graph &g) : graph(g) {}
+
+  void precompute() override {}
+
+  ShortestPathResult query(int source, int target) const override {
     VisualisationQueue visualisation_queue;
 
     std::array<std::vector<double>, 2> dist{
-        {std::vector<double>(g.num_nodes(), INF),
-         std::vector<double>(g.num_nodes(), INF)}};
-    std::array<std::vector<int>, 2> prev{{std::vector<int>(g.num_nodes(), -1),
-                                          std::vector<int>(g.num_nodes(), -1)}};
+        {std::vector<double>(graph.num_nodes(), INF),
+         std::vector<double>(graph.num_nodes(), INF)}};
+    std::array<std::vector<int>, 2> prev{
+        {std::vector<int>(graph.num_nodes(), -1),
+         std::vector<int>(graph.num_nodes(), -1)}};
     using T = std::tuple<double, int, uint64_t>;
     std::priority_queue<T, std::vector<T>, std::greater<T>> pq[2];
 
     dist[0][source] = dist[1][target] = 0.0;
-    pq[0].push({0.0, source, g.num_edges()});
-    pq[1].push({0.0, target, g.num_edges()});
+    pq[0].push({0.0, source, graph.num_edges()});
+    pq[1].push({0.0, target, graph.num_edges()});
     visualisation_queue.add_start_vertex(source);
     visualisation_queue.add_end_vertex(target);
 
@@ -43,12 +47,12 @@ public:
 
       auto [d, u, edge_id] = pq[dir].top();
       pq[dir].pop();
-      if (edge_id < g.num_edges()) {
+      if (edge_id < graph.num_edges()) {
         visualisation_queue.end_visiting_edge(edge_id);
       }
       visualisation_queue.start_visiting_vertex(u);
 
-      for (auto &e : g.adj[u]) {
+      for (auto &e : graph.adj[u]) {
         double nd = dist[dir][u] + e.distance;
         if (nd < dist[dir][e.to]) {
           dist[dir][e.to] = nd;
@@ -71,7 +75,7 @@ public:
     }
 
     int visited = 0;
-    for (int i = 0; i < g.num_nodes(); ++i) {
+    for (int i = 0; i < graph.num_nodes(); ++i) {
       if (dist[0][i] < INF || dist[1][i] < INF) {
         ++visited;
       }
@@ -80,4 +84,7 @@ public:
   }
 
   std::string name() const override { return "double_dijkstra"; }
+
+private:
+  const Graph &graph;
 };

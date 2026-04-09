@@ -122,7 +122,6 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     int64_t target_picked = -1;
 
     auto reset_visualization = [&](uint64_t source, uint64_t target){
-        std::cerr << algo << '\n';
         auto algorithm = make_algorithm(algo);
         auto result = algorithm->compute(graph, source, target);
         events = result.visualization_events;

@@ -19,8 +19,6 @@ public:
     Graph g(og_g);
     const auto& coord = g.coordinates;
 
-    std ::cerr << "BRUH" << '\n';
-
     for (int i = 0; i < g.adj.size(); i += 1) {
         for (int j = 0; j < g.adj[i].size(); j += 1) {
             auto edge = g.adj[i][j];

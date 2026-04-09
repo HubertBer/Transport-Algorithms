@@ -5,6 +5,7 @@
 #include "raymath.h"
 #include "dijkstra.hpp"
 #include "a_star.hpp"
+#include "double_dijkstra.hpp"
 #include "graph.hpp"
 
 // TODO maybe add this and add some sliders instead of buttons
@@ -57,8 +58,12 @@ inline bool isButtonClicked(const Button& button) {
 }
 
 std::unique_ptr<Algorithm> make_algorithm(std::string &name) {
-    if ( name == "dijkstra" )   return std::make_unique<Dijkstra>();
-    if ( name == "A*" )         return std::make_unique<AStar>();
+    if (name == "dijkstra")
+        return std::make_unique<Dijkstra>();
+    if (name == "A*")
+        return std::make_unique<AStar>();
+    if (name == "double_dijkstra")
+        return std::make_unique<DoubleDijkstra>();
     throw std::invalid_argument("Unknown algorithm: " + name);
 }
 
@@ -153,10 +158,10 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
 
             std::cout<< "ANOTHER_EVENT "<< event.id << '\n';
             switch(event.type) {
-                case VisualizationEventType::ADD_START_VERTEX: 
+                case VisualizationEventType::ADD_START_VERTEX:
                     start_node = event.id;
                     break;
-                case VisualizationEventType::ADD_END_VERTEX: 
+                case VisualizationEventType::ADD_END_VERTEX:
                     end_node = event.id;
                     break;
                 case VisualizationEventType::START_VISITING_EDGE:
@@ -196,12 +201,14 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
 
     Button dijkstra_button = createButton(50, 700, 200, 40, "dijkstra");
     Button a_star_button = createButton(50, 750, 200, 40, "A*");
+    Button double_dijkstra_button = createButton(50, 800, 200, 40, "double_dijkstra");
     Button faster_button = createButton(300, 700, 150, 40, "FASTER");
     Button slower_button = createButton(300, 750, 150, 40, "SLOWER");
     Button reset_button = createButton(300, 800, 150, 40, "RESET");
     auto draw_ui = [&]() {
         drawButton(dijkstra_button);
         drawButton(a_star_button);
+        drawButton(double_dijkstra_button);
         drawButton(faster_button);
         drawButton(slower_button);
         drawButton(reset_button);
@@ -214,6 +221,9 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         }
         if (isButtonClicked(a_star_button)) {
             algo = "A*";
+        }
+        if (isButtonClicked(double_dijkstra_button)) {
+            algo = "double_dijkstra";
         }
         if (isButtonClicked(faster_button)) {
             time_between_events /= 2;
@@ -266,7 +276,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
             pos += origin;
             DrawCircleV(pos, node_radius[i], node_color[i]);
         }
-        
+
         // Draw start and end node
         DrawCircleV(positions[start_node] * scale + origin, 4, BLUE);
         DrawCircleV(positions[end_node] * scale + origin, 4, RED);
@@ -275,7 +285,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         std :: cout << "TARGET PICKED" << target_picked << std::endl;
         if (source_picked >= 0) { DrawCircleV(positions[source_picked] * scale + origin, 8, DARKBLUE); }
         if (target_picked >= 0) { DrawCircleV(positions[target_picked] * scale + origin, 8, MAROON); }
-        
+
         draw_ui();
         EndDrawing();
     }

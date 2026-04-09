@@ -14,14 +14,16 @@ class Dijkstra : public Algorithm {
 public:
   ShortestPathResult compute(const Graph &g, int source,
                              int target) const override {
+    VisualisationQueue visualisation_queue;
+
     std::vector<double> dist(g.num_nodes(), INF);
     std::vector<int> prev(g.num_nodes(), -1);
 
     using P = std::tuple<double, int, uint64_t>;
     std::priority_queue<P, std::vector<P>, std::greater<P>> pq;
-    std::vector<VisualizationEvent> visualization_events;
-    visualization_events.emplace_back(VisualizationEventType::ADD_START_VERTEX, source);
-    visualization_events.emplace_back(VisualizationEventType::ADD_END_VERTEX, target);
+
+    visualisation_queue.add_start_vertex(source);
+    visualisation_queue.add_end_vertex(target);
 
     dist[source] = 0.0;
     pq.push({0.0, source, g.num_edges()});
@@ -31,13 +33,17 @@ public:
       pq.pop();
 
       if (edge_id < g.num_edges()) {
-        visualization_events.emplace_back(VisualizationEventType::END_VISITING_EDGE, edge_id);
+        visualisation_queue.end_visiting_edge(edge_id);
       }
 
-      if (u == target) { break; }
-      if (d > dist[u]) { continue; }
+      if (u == target) {
+        break;
+      }
+      if (d > dist[u]) {
+        continue;
+      }
 
-      visualization_events.emplace_back(VisualizationEventType::START_VISITING_VERTEX, u);
+      visualisation_queue.start_visiting_vertex(u);
 
       for (auto &e : g.adj[u]) {
         double nd = dist[u] + e.distance;
@@ -45,11 +51,11 @@ public:
           dist[e.to] = nd;
           prev[e.to] = u;
           pq.push({nd, e.to, e.id});
-          visualization_events.emplace_back(VisualizationEventType::START_VISITING_EDGE, e.id);
+          visualisation_queue.start_visiting_edge(e.id);
         }
       }
 
-      visualization_events.emplace_back(VisualizationEventType::END_VISITING_VERTEX, u);
+      visualisation_queue.end_visiting_vertex(u);
     }
 
     std::vector<int> path;
@@ -61,7 +67,7 @@ public:
 
     int visited = std::count_if(dist.begin(), dist.end(),
                                 [](double d) { return d < INF; });
-    return {path, dist[target], visited, visualization_events};
+    return {path, dist[target], visited, visualisation_queue.events};
   }
 
   std::string name() const override { return "dijkstra"; }

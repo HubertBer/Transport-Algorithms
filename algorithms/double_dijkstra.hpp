@@ -1,0 +1,83 @@
+#pragma once
+
+#include "algorithm.hpp"
+#include "visualizations.hpp"
+
+#include <algorithm>
+#include <array>
+#include <limits>
+#include <queue>
+#include <vector>
+
+class DoubleDijkstra : public Algorithm {
+  constexpr static double INF = std::numeric_limits<double>::infinity();
+
+public:
+  ShortestPathResult compute(const Graph &g, int source,
+                             int target) const override {
+    VisualisationQueue visualisation_queue;
+
+    std::array<std::vector<double>, 2> dist{
+        {std::vector<double>(g.num_nodes(), INF),
+         std::vector<double>(g.num_nodes(), INF)}};
+    std::array<std::vector<int>, 2> prev{{std::vector<int>(g.num_nodes(), -1),
+                                          std::vector<int>(g.num_nodes(), -1)}};
+    using T = std::tuple<double, int, uint64_t>;
+    std::priority_queue<T, std::vector<T>, std::greater<T>> pq[2];
+
+    dist[0][source] = dist[1][target] = 0.0;
+    pq[0].push({0.0, source, g.num_edges()});
+    pq[1].push({0.0, target, g.num_edges()});
+    visualisation_queue.add_start_vertex(source);
+    visualisation_queue.add_end_vertex(target);
+
+    double mu = INF;
+    while (!pq[0].empty() && !pq[1].empty()) {
+      double df = pq[0].empty() ? INF : std::get<0>(pq[0].top());
+      double db = pq[1].empty() ? INF : std::get<0>(pq[1].top());
+      if (df + db >= mu) {
+        break;
+      }
+
+      int dir = df < db ? 0 : 1;
+
+      auto [d, u, edge_id] = pq[dir].top();
+      pq[dir].pop();
+      if (edge_id < g.num_edges()) {
+        visualisation_queue.end_visiting_edge(edge_id);
+      }
+      visualisation_queue.start_visiting_vertex(u);
+
+      for (auto &e : g.adj[u]) {
+        double nd = dist[dir][u] + e.distance;
+        if (nd < dist[dir][e.to]) {
+          dist[dir][e.to] = nd;
+          prev[dir][e.to] = u;
+          pq[dir].push({nd, e.to, e.id});
+          visualisation_queue.start_visiting_edge(e.id);
+        }
+        if (nd + dist[1 - dir][e.to] < mu) {
+          mu = nd + dist[1 - dir][e.to];
+        }
+      }
+      visualisation_queue.end_visiting_vertex(u);
+    }
+
+    std::vector<int> path;
+    if (dist[0][target] < INF) {
+      for (int v = target; v != -1; v = prev[0][v])
+        path.push_back(v);
+      std::reverse(path.begin(), path.end());
+    }
+
+    int visited = 0;
+    for (int i = 0; i < g.num_nodes(); ++i) {
+      if (dist[0][i] < INF || dist[1][i] < INF) {
+        ++visited;
+      }
+    }
+    return {path, dist[0][target], visited, visualisation_queue.events};
+  }
+
+  std::string name() const override { return "double_dijkstra"; }
+};

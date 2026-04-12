@@ -1,7 +1,9 @@
 #include "algorithm.hpp"
-#include "dijkstra.hpp"
 #include "graph.hpp"
 #include "graph_io.hpp"
+
+#include "dijkstra.hpp"
+#include "double_dijkstra.hpp"
 
 #include <chrono>
 #include <iostream>
@@ -11,6 +13,8 @@
 std::unique_ptr<Algorithm> make_algorithm(const std::string &name) {
   if (name == "dijkstra")
     return std::make_unique<Dijkstra>();
+  if (name == "double_dijkstra")
+    return std::make_unique<DoubleDijkstra>();
   throw std::invalid_argument("Unknown algorithm: " + name);
 }
 

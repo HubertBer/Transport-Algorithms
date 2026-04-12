@@ -8,9 +8,8 @@
 #include "double_dijkstra.hpp"
 #include "graph.hpp"
 
-// TODO maybe add this and add some sliders instead of buttons
-// #define RAYGUI_IMPLEMENTATION
-// #include "raygui.h"
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
 
 #include <iostream>
 #include <memory>
@@ -23,11 +22,19 @@ struct Button {
     int fontSize;
     Color bgColor;
     Color textColor;
+    int font_size;
+    Color text_color;
 };
 
-inline Button createButton(float x, float y, float width, float height, const std::string& label, int fontSize = 30, Color bg = BLACK, Color fg = WHITE) {
-    return Button{{x, y, width, height}, label, fontSize, bg, fg};
-}
+struct Slider {
+    Rectangle bounds;
+    std::string middle_format;
+    float* value;
+    float min_value;
+    float max_value;
+    int font_size;
+    Color text_color;
+};
 
 inline void DrawTextStretched(const char* text, int posX, int posY, int fontSize, Color color) {
     float fx = posX;
@@ -37,6 +44,33 @@ inline void DrawTextStretched(const char* text, int posX, int posY, int fontSize
     float spacing = 4.0f;
     Vector2 ts = MeasureTextEx(f, text, size, spacing);
     DrawTextEx(f, text, { fx - ts.x * 0.5f, fy - size * 0.5f }, size, spacing, color);
+}
+
+inline Slider make_slider(float x, float y, float width, float height, const std::string& middle_format, float *value, float min_value, float max_value, int font_size = 20, Color text_color = BLACK) {
+    return Slider{
+        Rectangle{x, y, width, height},
+        middle_format,
+        value,
+        min_value,
+        max_value,
+        font_size,
+        text_color
+    };
+}
+
+inline Button createButton(float x, float y, float width, float height, const std::string& label, int fontSize = 30, Color bg = BLACK, Color fg = WHITE) {
+    return Button{{x, y, width, height}, label, fontSize, bg, fg};
+}
+
+inline void draw_slider(Slider slider) {
+    GuiSliderBar(slider.bounds, "", "", slider.value, slider.min_value, slider.max_value);
+    DrawTextStretched(
+        TextFormat(slider.middle_format.c_str(), *slider.value),
+        slider.bounds.x + slider.bounds.width / 2,
+        slider.bounds.y + slider.bounds.height / 2,
+        slider.font_size,
+        slider.text_color
+    );
 }
 
 inline void drawButton(const Button& button) {
@@ -119,13 +153,13 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     }
 
     int event_now = 0;
-    float time_between_events = 0.01;
+    float frequency = 7;
     float next_event_timer = 0;
     uint64_t start_node = 0;
     uint64_t end_node = 0;
     int64_t source_picked = -1;
     int64_t target_picked = -1;
-
+    
     auto reset_visualization = [&](uint64_t source, uint64_t target){
         auto algorithm = make_algorithm(algo);
         auto result = algorithm->compute(graph, source, target);
@@ -199,20 +233,19 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         return min_idx;
     };
 
-    Button dijkstra_button = createButton(50, 700, 200, 40, "dijkstra");
-    Button a_star_button = createButton(50, 750, 200, 40, "A*");
-    Button double_dijkstra_button = createButton(50, 800, 200, 40, "double_dijkstra");
-    Button faster_button = createButton(300, 700, 150, 40, "FASTER");
-    Button slower_button = createButton(300, 750, 150, 40, "SLOWER");
-    Button reset_button = createButton(300, 800, 150, 40, "RESET");
+    Button dijkstra_button = createButton(50, 700, 300, 40, "dijkstra");
+    Button a_star_button = createButton(50, 750, 300, 40, "A*");
+    Button double_dijkstra_button = createButton(50, 800, 300, 40, "double_dijkstra");
+    Button reset_button = createButton(400, 800, 250, 40, "RESET");
+    Slider frequency_slider = make_slider(400, 700, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
     auto draw_ui = [&]() {
         drawButton(dijkstra_button);
         drawButton(a_star_button);
         drawButton(double_dijkstra_button);
-        drawButton(faster_button);
-        drawButton(slower_button);
+        draw_slider(frequency_slider);
         drawButton(reset_button);
         DrawTextStretched(algo.c_str(), 150, 680, 30, BLACK);
+        DrawFPS(5, 5);
     };
 
     auto handle_ui_logic = [&]() {
@@ -224,12 +257,6 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         }
         if (isButtonClicked(double_dijkstra_button)) {
             algo = "double_dijkstra";
-        }
-        if (isButtonClicked(faster_button)) {
-            time_between_events /= 2;
-        }
-        if (isButtonClicked(slower_button)) {
-            time_between_events *= 2;
         }
         if (isButtonClicked(reset_button)) {
             reset_visualization(start_node, end_node);
@@ -255,7 +282,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
 
         next_event_timer -= GetFrameTime();
         while (next_event_timer < 0) {
-            next_event_timer += time_between_events;
+            next_event_timer += powf(2, -frequency);
             process_events_tick();
         }
 

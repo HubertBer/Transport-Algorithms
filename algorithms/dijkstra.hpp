@@ -12,12 +12,12 @@ constexpr double INF = std::numeric_limits<double>::infinity();
 
 class Dijkstra : public Algorithm {
 public:
-  ShortestPathResult compute(const Graph &g, int source,
+    ShortestPathResult compute(const Graph &g, int source,
                              int target) const override {
     VisualisationQueue visualisation_queue;
 
     std::vector<double> dist(g.num_nodes(), INF);
-    std::vector<int> prev(g.num_nodes(), -1);
+    std::vector<std::pair<uint32_t, uint32_t>> prev(g.num_nodes(), {-1, -1});
 
     using P = std::tuple<double, int, uint64_t>;
     std::priority_queue<P, std::vector<P>, std::greater<P>> pq;
@@ -49,7 +49,7 @@ public:
         double nd = dist[u] + e.distance;
         if (nd < dist[e.to]) {
           dist[e.to] = nd;
-          prev[e.to] = u;
+          prev[e.to] = {u, e.id};
           pq.push({nd, e.to, e.id});
           visualisation_queue.start_visiting_edge(e.id);
         }
@@ -58,10 +58,11 @@ public:
       visualisation_queue.end_visiting_vertex(u);
     }
 
-    std::vector<int> path;
+    std::vector<std::pair<uint32_t, uint32_t>> path;
     if (dist[target] < INF) {
-      for (int v = target; v != -1; v = prev[v])
-        path.push_back(v);
+      for (auto v = target; prev[v].first != -1; v = prev[v].first) {
+        path.emplace_back(v, prev[v].second);
+      }
       std::reverse(path.begin(), path.end());
     }
 

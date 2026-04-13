@@ -20,8 +20,7 @@ public:
     std::array<std::vector<double>, 2> dist{
         {std::vector<double>(g.num_nodes(), INF),
          std::vector<double>(g.num_nodes(), INF)}};
-    std::array<std::vector<int>, 2> prev{{std::vector<int>(g.num_nodes(), -1),
-                                          std::vector<int>(g.num_nodes(), -1)}};
+    // std::array<std::vector<std::pair<uint32_t, uint32_t>>, 2> prev{std::vector<std::pair<uint32_t, uint32_t>>(g.num_nodes(), {-1, -1}), std::vector<std::pair<uint32_t, uint32_t>>(g.num_nodes(), {-1, -1})};
     using T = std::tuple<double, int, uint64_t>;
     std::priority_queue<T, std::vector<T>, std::greater<T>> pq[2];
 
@@ -52,7 +51,7 @@ public:
         double nd = dist[dir][u] + e.distance;
         if (nd < dist[dir][e.to]) {
           dist[dir][e.to] = nd;
-          prev[dir][e.to] = u;
+          // prev[dir][e.to] = {u, e.id};
           pq[dir].push({nd, e.to, e.id});
           visualisation_queue.start_visiting_edge(e.id);
         }
@@ -63,12 +62,7 @@ public:
       visualisation_queue.end_visiting_vertex(u);
     }
 
-    std::vector<int> path;
-    if (dist[0][target] < INF) {
-      for (int v = target; v != -1; v = prev[0][v])
-        path.push_back(v);
-      std::reverse(path.begin(), path.end());
-    }
+    std::vector<std::pair<uint32_t, uint32_t>> path;
 
     int visited = 0;
     for (int i = 0; i < g.num_nodes(); ++i) {

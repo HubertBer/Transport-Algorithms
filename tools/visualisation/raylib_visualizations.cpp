@@ -127,7 +127,7 @@ vector<Vector2> compute_positions(vector<Vector2> coordinates) {
     return positions;
 }
 
-void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph, std::string algo) {
+void raylib_visualization(ShortestPathResult result, const Graph& graph, std::string algo) {
     vector<Vector2> positions = compute_positions(graph.coordinates);
     InitWindow(1920, 1200, "transport algorithm visualization");
 
@@ -138,10 +138,15 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     const Color being_visited_color = GREEN;
     const Color visited_color = BLACK;
 
+    vector<bool> vertex_visited(graph.num_nodes(), false);
+    vector<bool> is_path_edge(graph.num_edges(), false);
     vector<Color> node_color(graph.num_nodes());
     vector<float> node_radius(graph.num_nodes());
     vector<Color> edge_color(graph.num_edges());
     vector<float> edge_width(graph.num_edges());
+    auto path   = result.path;
+    auto events = result.visualization_events;
+    float path_width = 10;
 
     for (int i = 0; i < graph.num_nodes(); ++i) {
         node_color[i] = unvisited_color;
@@ -150,6 +155,9 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     for (int i = 0; i < graph.num_edges(); ++i) {
         edge_color[i] = unvisited_color;
         edge_width[i] = 0.6;
+    }
+    for (auto [v, eid]: path){
+        is_path_edge[eid] = true;
     }
 
     int event_now = 0;
@@ -160,18 +168,25 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     int64_t source_picked = -1;
     int64_t target_picked = -1;
     
+
     auto reset_visualization = [&](uint64_t source, uint64_t target){
         auto algorithm = make_algorithm(algo);
         auto result = algorithm->compute(graph, source, target);
         events = result.visualization_events;
+        path = result.path;
 
         for (int i = 0; i < graph.num_nodes(); ++i) {
             node_color[i] = unvisited_color;
             node_radius[i] = 1;
+            vertex_visited[i] = false;
         }
         for (int i = 0; i < graph.num_edges(); ++i) {
-            edge_color[i] = unvisited_color;
-            edge_width[i] = 0.6;
+            edge_color[i]   = unvisited_color;
+            edge_width[i]   = 0.6;
+            is_path_edge[i] = false;
+        }
+        for (auto [v, eid]: path){
+            is_path_edge[eid] = true;
         }
 
         event_now = 0;
@@ -198,7 +213,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
                 case VisualizationEventType::ADD_END_VERTEX:
                     end_node = event.id;
                     break;
-                case VisualizationEventType::START_VISITING_EDGE:
+                case VisualizationEventType::START_VISITING_EDGE:    
                     edge_color[event.id] = being_visited_color;
                     edge_width[event.id] = 2;
                     break;
@@ -207,6 +222,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
                     edge_width[event.id] = 1.5;
                     break;
                 case VisualizationEventType::START_VISITING_VERTEX:
+                    vertex_visited[event.id] = true;
                     node_color[event.id] = being_visited_color;
                     node_radius[event.id] = 2;
                     break;
@@ -233,16 +249,19 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         return min_idx;
     };
 
-    Button dijkstra_button = createButton(50, 700, 300, 40, "dijkstra");
-    Button a_star_button = createButton(50, 750, 300, 40, "A*");
-    Button double_dijkstra_button = createButton(50, 800, 300, 40, "double_dijkstra");
-    Button reset_button = createButton(400, 800, 250, 40, "RESET");
-    Slider frequency_slider = make_slider(400, 700, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
+    Button dijkstra_button          = createButton(50, 700, 300, 40, "dijkstra");
+    Button a_star_button            = createButton(50, 750, 300, 40, "A*");
+    Button double_dijkstra_button   = createButton(50, 800, 300, 40, "double_dijkstra");
+    Slider frequency_slider         = make_slider(400, 700, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
+    Slider path_width_slider        = make_slider(400, 750, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 30);
+    Button reset_button             = createButton(400, 800, 250, 40, "RESET");
+    
     auto draw_ui = [&]() {
         drawButton(dijkstra_button);
         drawButton(a_star_button);
         drawButton(double_dijkstra_button);
         draw_slider(frequency_slider);
+        draw_slider(path_width_slider);
         drawButton(reset_button);
         DrawTextStretched(algo.c_str(), 150, 680, 30, BLACK);
         DrawFPS(5, 5);
@@ -292,7 +311,12 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
                 auto edge = graph.adj[i][j];
                 auto pos0 = positions[i] * scale + origin;
                 auto pos1 = positions[edge.to] * scale + origin;
-                DrawLineEx(pos0, pos1, edge_width[edge.id], edge_color[edge.id]);
+                if (is_path_edge[edge.id] && vertex_visited[i] && vertex_visited[edge.to]) {
+                    DrawLineEx(pos0, pos1, path_width, MAROON);
+                    DrawCircleV(pos0, path_width / 2, MAROON);
+                } else {
+                    DrawLineEx(pos0, pos1, edge_width[edge.id], edge_color[edge.id]);
+                }
             }
         }
 
@@ -303,16 +327,14 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
             pos += origin;
             DrawCircleV(pos, node_radius[i], node_color[i]);
         }
-
+        
         // Draw start and end node
         DrawCircleV(positions[start_node] * scale + origin, 4, BLUE);
         DrawCircleV(positions[end_node] * scale + origin, 4, RED);
         // Draw source and target nodes
-        std :: cout << "SOURCE PICKED" << source_picked << std::endl;
-        std :: cout << "TARGET PICKED" << target_picked << std::endl;
         if (source_picked >= 0) { DrawCircleV(positions[source_picked] * scale + origin, 8, DARKBLUE); }
         if (target_picked >= 0) { DrawCircleV(positions[target_picked] * scale + origin, 8, MAROON); }
-
+        
         draw_ui();
         EndDrawing();
     }
@@ -345,6 +367,6 @@ int main(int argc, char *argv[]) {
 
     ShortestPathResult result = algorithm->compute(g, source, target);
 
-    raylib_visualization(result.visualization_events, g, algo);
+    raylib_visualization(result, g, algo);
     return 0;
 }

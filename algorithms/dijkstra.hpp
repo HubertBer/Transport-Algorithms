@@ -4,6 +4,7 @@
 #include "visualizations.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 #include <queue>
 #include <vector>
@@ -11,28 +12,32 @@
 constexpr double INF = std::numeric_limits<double>::infinity();
 
 class Dijkstra : public Algorithm {
+  using Heuristic = std::function<double(const Graph &, int, int)>;
+
 public:
   Dijkstra(const Graph &g) : graph(g) {}
 
-  void precompute() const override {}
+  void precompute() override {}
 
-  ShortestPathResult query(int source, int target) const override {
+  ShortestPathResult queryHeuristic(int source, int target,
+                                    Heuristic heuristic) const {
     VisualisationQueue visualisation_queue;
+    auto h = [&](int v) { return heuristic(graph, target, v); };
 
     std::vector<double> dist(graph.num_nodes(), INF);
     std::vector<int> prev(graph.num_nodes(), -1);
 
-    using P = std::tuple<double, int, uint64_t>;
+    using P = std::tuple<double, double, int, uint64_t>;
     std::priority_queue<P, std::vector<P>, std::greater<P>> pq;
 
     visualisation_queue.add_start_vertex(source);
     visualisation_queue.add_end_vertex(target);
 
     dist[source] = 0.0;
-    pq.push({0.0, source, graph.num_edges()});
+    pq.push({h(source), 0.0, source, graph.num_edges()});
 
     while (!pq.empty()) {
-      auto [d, u, edge_id] = pq.top();
+      auto [_, d, u, edge_id] = pq.top();
       pq.pop();
 
       if (edge_id < graph.num_edges()) {
@@ -53,7 +58,7 @@ public:
         if (nd < dist[e.to]) {
           dist[e.to] = nd;
           prev[e.to] = u;
-          pq.push({nd, e.to, e.id});
+          pq.push({nd + h(e.to), nd, e.to, e.id});
           visualisation_queue.start_visiting_edge(e.id);
         }
       }
@@ -73,11 +78,13 @@ public:
     return {path, dist[target], visited, visualisation_queue.events};
   }
 
-  std::vector<double> query(int source) const {
-    // TODO: don't duplicate code
+  ShortestPathResult query(int source, int target) const override {
+    return queryHeuristic(source, target,
+                          [](const Graph &, int, int) { return 0.0; });
+  }
 
+  std::vector<double> queryAll(int source) const {
     std::vector<double> dist(graph.num_nodes(), INF);
-    std::vector<int> prev(graph.num_nodes(), -1);
 
     using P = std::tuple<double, int, uint64_t>;
     std::priority_queue<P, std::vector<P>, std::greater<P>> pq;
@@ -97,12 +104,10 @@ public:
         double nd = dist[u] + e.distance;
         if (nd < dist[e.to]) {
           dist[e.to] = nd;
-          prev[e.to] = u;
           pq.push({nd, e.to, e.id});
         }
       }
     }
-
     return dist;
   }
 

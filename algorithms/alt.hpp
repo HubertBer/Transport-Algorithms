@@ -26,36 +26,29 @@ public:
     from_landmark_dist.resize(landmarks.size());
     to_landmark_dist.resize(landmarks.size());
     for (int l = 0; l < landmarks.size(); ++l) {
-      from_landmark_dist[l] = dijkstra.query(landmarks[l]);
-      to_landmark_dist[l] = dijkstra_rev.query(landmarks[l]);
+      from_landmark_dist[l] = dijkstra.queryAll(landmarks[l]);
+      to_landmark_dist[l] = dijkstra_rev.queryAll(landmarks[l]);
     }
   }
 
   ShortestPathResult query(int source, int target) const override {
-    std::vector<double> potentials(graph.num_nodes(), 0);
-    for (int l = 0; l < landmarks.size(); ++l) {
-      for (int v = 0; v < graph.num_nodes(); ++v) {
+    auto heuristic = [&](const Graph &g, int target, int v) {
+      double d = 0;
+      for (int l = 0; l < landmarks.size(); ++l) {
         double d_lv = from_landmark_dist[l][v],
                d_lt = from_landmark_dist[l][target],
                d_vl = to_landmark_dist[l][v],
                d_tl = to_landmark_dist[l][target];
         if (d_lv < INF && d_lt < INF)
-          potentials[v] = std::max(potentials[v], d_lt - d_lv);
+          d = std::max(d, d_lt - d_lv);
         if (d_vl < INF && d_tl < INF)
-          potentials[v] = std::max(potentials[v], d_vl - d_tl);
+          d = std::max(d, d_vl - d_tl);
       }
-    }
+      return d;
+    };
 
-    Graph g(graph);
-    for (int v = 0; v < g.adj.size(); ++v) {
-      for (auto &e : g.adj[v]) {
-        e.distance =
-            std::max(0.0, e.distance + potentials[e.to] - potentials[v]);
-      }
-    }
-
-    Dijkstra dijkstra(g);
-    return dijkstra.query(source, target);
+    Dijkstra dijkstra(graph);
+    return dijkstra.queryHeuristic(source, target, heuristic);
   }
 
   std::string name() const override { return "alt"; }

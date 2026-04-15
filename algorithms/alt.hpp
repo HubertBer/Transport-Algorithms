@@ -7,28 +7,66 @@
 #include "visualizations.hpp"
 
 class Alt : public Algorithm {
+  void selectRandomLandmarks(int landmark_count) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, graph.num_nodes() - 1);
+
+    auto graph_rev = graph.reversed();
+    Dijkstra dijkstra(graph), dijkstra_rev(graph_rev);
+
+    for (int i = 0; i < landmark_count; ++i) {
+      int l = dis(gen);
+      landmarks.push_back(l);
+      from_landmark_dist.push_back(dijkstra.queryAll(l));
+      to_landmark_dist.push_back(dijkstra_rev.queryAll(l));
+    }
+  }
+
+  void selectFarthestLandmarks(int landmark_count) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, graph.num_nodes() - 1);
+
+    auto graph_rev = graph.reversed();
+    Dijkstra dijkstra(graph), dijkstra_rev(graph_rev);
+
+    for (int i = 0; i < landmark_count; ++i) {
+      int nl;
+      if (i == 0) {
+        nl = dis(gen);
+      } else {
+        double max_d = 0;
+        for (int v = 0; v < graph.num_nodes(); ++v) {
+          double min_dv = INF;
+          for (int l = 0; l < landmarks.size(); ++l) {
+            if (min_dv < from_landmark_dist[l][v] ||
+                min_dv < to_landmark_dist[l][v]) {
+              min_dv =
+                  std::max(from_landmark_dist[l][v], to_landmark_dist[l][v]);
+            }
+          }
+          if (min_dv > max_d) {
+            max_d = min_dv;
+            nl = v;
+          }
+        }
+      }
+      landmarks.push_back(nl);
+      from_landmark_dist.push_back(dijkstra.queryAll(nl));
+      to_landmark_dist.push_back(dijkstra_rev.queryAll(nl));
+    }
+  }
+
 public:
   Alt(const Graph &g) : graph(g) {}
 
   void precompute() override {
-    // TODO: better landmark selection
     landmarks.clear();
+    from_landmark_dist.clear();
+    to_landmark_dist.clear();
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, graph.num_nodes() - 1);
-    for (int i = 0; i < 20; ++i) {
-      landmarks.push_back(dis(gen));
-    }
-
-    auto graph_rev = graph.reversed();
-    Dijkstra dijkstra(graph), dijkstra_rev(graph_rev);
-    from_landmark_dist.resize(landmarks.size());
-    to_landmark_dist.resize(landmarks.size());
-    for (int l = 0; l < landmarks.size(); ++l) {
-      from_landmark_dist[l] = dijkstra.queryAll(landmarks[l]);
-      to_landmark_dist[l] = dijkstra_rev.queryAll(landmarks[l]);
-    }
+    selectFarthestLandmarks(20);
   }
 
   ShortestPathResult query(int source, int target) const override {

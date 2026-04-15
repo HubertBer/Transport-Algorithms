@@ -40,10 +40,10 @@ class Alt : public Algorithm {
         for (int v = 0; v < graph.num_nodes(); ++v) {
           double min_dv = INF;
           for (int l = 0; l < landmarks.size(); ++l) {
-            if (min_dv < from_landmark_dist[l][v] ||
-                min_dv < to_landmark_dist[l][v]) {
+            if (min_dv > from_landmark_dist[l][v] ||
+                min_dv > to_landmark_dist[l][v]) {
               min_dv =
-                  std::max(from_landmark_dist[l][v], to_landmark_dist[l][v]);
+                  std::min(from_landmark_dist[l][v], to_landmark_dist[l][v]);
             }
           }
           if (min_dv > max_d) {
@@ -86,7 +86,19 @@ public:
     };
 
     Dijkstra dijkstra(graph);
-    return dijkstra.queryHeuristic(source, target, heuristic);
+    auto result = dijkstra.queryHeuristic(source, target, heuristic);
+
+    std::vector<VisualizationEvent> events(landmarks.size() +
+                                           result.visualization_events.size());
+    for (int i = 0; i < landmarks.size(); ++i) {
+      events[i] = {VisualizationEventType::LANDMARK, landmarks[i]};
+    }
+    for (int i = 0; i < result.visualization_events.size(); ++i) {
+      events[landmarks.size() + i] = result.visualization_events[i];
+    }
+    result.visualization_events = events;
+
+    return result;
   }
 
   std::string name() const override { return "alt"; }

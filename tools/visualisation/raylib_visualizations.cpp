@@ -106,6 +106,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
     const Color unvisited_color = GRAY;
     const Color being_visited_color = GREEN;
     const Color visited_color = BLACK;
+    const Color landmark_color = YELLOW;
 
     vector<Color> node_color(graph.num_nodes());
     vector<float> node_radius(graph.num_nodes());
@@ -183,8 +184,11 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
                 case VisualizationEventType::END_VISITING_VERTEX:
                     node_color[event.id] = visited_color;
                     node_radius[event.id] = 1;
-                    // The end of the tick
                     return;
+                case VisualizationEventType::LANDMARK:
+                    node_color[event.id] = landmark_color;
+                    node_radius[event.id] = 10;
+                    break;
             }
         }
     };

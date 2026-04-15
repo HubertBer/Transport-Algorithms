@@ -311,7 +311,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                 auto edge = graph.adj[i][j];
                 auto pos0 = positions[i] * scale + origin;
                 auto pos1 = positions[edge.to] * scale + origin;
-                if (is_path_edge[edge.id] && vertex_visited[i] && vertex_visited[edge.to]) {
+                if (is_path_edge[edge.id] && (vertex_visited[i] || vertex_visited[edge.to])) {
                     DrawLineEx(pos0, pos1, path_width, MAROON);
                     DrawCircleV(pos0, path_width / 2, MAROON);
                 } else {

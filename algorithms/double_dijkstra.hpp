@@ -20,7 +20,7 @@ public:
     std::array<std::vector<double>, 2> dist{
         {std::vector<double>(g.num_nodes(), INF),
          std::vector<double>(g.num_nodes(), INF)}};
-    // std::array<std::vector<std::pair<uint32_t, uint32_t>>, 2> prev{std::vector<std::pair<uint32_t, uint32_t>>(g.num_nodes(), {-1, -1}), std::vector<std::pair<uint32_t, uint32_t>>(g.num_nodes(), {-1, -1})};
+    std::array<std::vector<std::pair<uint32_t, uint32_t>>, 2> prev{std::vector<std::pair<uint32_t, uint32_t>>(g.num_nodes(), {-1, -1}), std::vector<std::pair<uint32_t, uint32_t>>(g.num_nodes(), {-1, -1})};
     using T = std::tuple<double, int, uint64_t>;
     std::priority_queue<T, std::vector<T>, std::greater<T>> pq[2];
 
@@ -31,6 +31,7 @@ public:
     visualisation_queue.add_end_vertex(target);
 
     double mu = INF;
+    int meetup_node = UINT32_MAX;
     while (!pq[0].empty() && !pq[1].empty()) {
       double df = pq[0].empty() ? INF : std::get<0>(pq[0].top());
       double db = pq[1].empty() ? INF : std::get<0>(pq[1].top());
@@ -51,18 +52,29 @@ public:
         double nd = dist[dir][u] + e.distance;
         if (nd < dist[dir][e.to]) {
           dist[dir][e.to] = nd;
-          // prev[dir][e.to] = {u, e.id};
+          prev[dir][e.to] = {u, e.id};
           pq[dir].push({nd, e.to, e.id});
           visualisation_queue.start_visiting_edge(e.id);
         }
         if (nd + dist[1 - dir][e.to] < mu) {
           mu = nd + dist[1 - dir][e.to];
+          meetup_node = e.to;
         }
       }
       visualisation_queue.end_visiting_vertex(u);
     }
 
     std::vector<std::pair<uint32_t, uint32_t>> path;
+    if (mu < INF) {
+      for (uint32_t v = meetup_node; prev[0][v].first != UINT32_MAX; v = prev[0][v].first) {
+        path.emplace_back(v, prev[0][v].second);
+      }
+      std::reverse(path.begin(), path.end());
+      for (uint32_t v = meetup_node; prev[1][v].first != UINT32_MAX; v = prev[1][v].first) {
+        path.emplace_back(prev[1][v].first, prev[1][v].second);
+      }
+      std::reverse(path.begin(), path.end());
+    }
 
     int visited = 0;
     for (int i = 0; i < g.num_nodes(); ++i) {
@@ -70,7 +82,7 @@ public:
         ++visited;
       }
     }
-    return {path, dist[0][target], visited, visualisation_queue.events};
+    return {path, mu, visited, visualisation_queue.events};
   }
 
   std::string name() const override { return "double_dijkstra"; }

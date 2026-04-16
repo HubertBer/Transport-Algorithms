@@ -154,59 +154,57 @@ struct AlgoSimulationState {
     
 };
 
+AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, ShortestPathResult result, Vector2 origin, Vector2 scale) {
+    return {
+        origin,
+        scale,
+
+        GRAY,
+        GREEN,
+        BLACK,
+    
+        vector<bool>(n, false),
+        vector<bool>(m, false),
+        vector<Color>(n),
+        vector<float>(n),
+        vector<Color>(m),
+        vector<float>(m),
+        algo,
+        result,
+
+        0,
+        0,
+
+        createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
+        createButton(0, 0.50, 0.21, 0.03, "A*", 15),
+        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15)
+    };
+} 
+
 void raylib_visualization(ShortestPathResult result, const Graph& graph, std::string algo) {
     vector<Vector2> positions = compute_positions(graph.coordinates);
     InitWindow(1920, 1200, "transport algorithm visualization");
 
-    vector<AlgoSimulationState> sim_states{{
-        Vector2{50, 50},
-        Vector2{700, 700},
+    static constexpr int max_simulations = 4;
+    vector<vector<Vector2>> origins{
+        {},
+        {{50, 50}},
+        {{50, 50}, {750, 50}},
+        {{50, 50}, {650, 50}, {50, 500}},
+        {{50, 50}, {650, 50}, {50, 500}, {650, 500}},
+    };
+    vector<Vector2> scales{
+        {},
+        {1400, 1400},
+        {700, 700},
+        {600, 600},
+        {600, 600},
+    };
 
-        GRAY,
-        GREEN,
-        BLACK,
-    
-        vector<bool>(graph.num_nodes(), false),
-        vector<bool>(graph.num_edges(), false),
-        vector<Color>(graph.num_nodes()),
-        vector<float>(graph.num_nodes()),
-        vector<Color>(graph.num_edges()),
-        vector<float>(graph.num_edges()),
-        algo,
-        result,
-
-        0,
-        0,
-
-        createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
-        createButton(0, 0.50, 0.21, 0.03, "A*", 15),
-        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15)
-    },
-    {
-        Vector2{750, 50},
-        Vector2{700, 700},
-
-        GRAY,
-        GREEN,
-        BLACK,
-    
-        vector<bool>(graph.num_nodes(), false),
-        vector<bool>(graph.num_edges(), false),
-        vector<Color>(graph.num_nodes()),
-        vector<float>(graph.num_nodes()),
-        vector<Color>(graph.num_edges()),
-        vector<float>(graph.num_edges()),
-        algo,
-        result,
-
-        0,
-        0,
-
-        createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
-        createButton(0, 0.50, 0.21, 0.03, "A*", 15),
-        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15)
-    }    
-};
+    vector<AlgoSimulationState> sim_states{
+        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][0], scales[2]),
+        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][1], scales[2]),    
+    };
 
     uint64_t start_node = 0;
     uint64_t end_node = 0;
@@ -230,6 +228,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     }
 
     auto reset_visualization = [&](uint64_t source, uint64_t target){
+        int idx = 0;
         for (auto& sim_state: sim_states) {
             auto algorithm = make_algorithm(sim_state.algo_name);
             auto result = algorithm->compute(graph, source, target);
@@ -250,6 +249,9 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             }
             sim_state.event_now = 0;
             sim_state.next_event_timer = 0;
+            sim_state.origin = origins[sim_states.size()][idx];
+            sim_state.scale = scales[sim_states.size()];
+            idx += 1;
         }
 
         start_node = source;
@@ -310,9 +312,11 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         return min_idx;
     };
 
-    Slider frequency_slider         = make_slider(400, 700, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
-    Slider path_width_slider        = make_slider(400, 750, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 30);
-    Button reset_button             = createButton(400, 800, 250, 40, "RESET");
+    Slider frequency_slider         = make_slider(1200, 650, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
+    Slider path_width_slider        = make_slider(1200, 700, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 30);
+    Button reset_button             = createButton(1200, 750, 250, 40, "RESET");
+    Button add_vis                  = createButton(1200, 800, 80, 40, "NEW");
+    Button rm_vis                   = createButton(1300, 800, 80, 40, "RM");
 
     auto screen_space_button = [](const AlgoSimulationState& sim_state, Button button) {
         auto new_button = button;
@@ -328,6 +332,8 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         draw_slider(frequency_slider);
         draw_slider(path_width_slider);
         drawButton(reset_button);
+        drawButton(add_vis);
+        drawButton(rm_vis);
         DrawFPS(5, 5);
 
         // PER SIM UI
@@ -353,6 +359,18 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             }
         }
         if (isButtonClicked(reset_button)) {
+            reset_visualization(start_node, end_node);
+        }
+        if (isButtonClicked(add_vis)) {
+            if (sim_states.size() < max_simulations) {
+                sim_states.push_back(make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, {}, {}));
+            } 
+            reset_visualization(start_node, end_node);
+        }
+        if (isButtonClicked(rm_vis)) {
+            if (sim_states.size() > 0) {
+                sim_states.pop_back();
+            } 
             reset_visualization(start_node, end_node);
         }
     };

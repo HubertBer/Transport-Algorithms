@@ -130,7 +130,6 @@ vector<Vector2> compute_positions(vector<Vector2> coordinates) {
 struct AlgoSimulationState {
     Vector2 origin;
     Vector2 scale;
-    float path_width;
 
     Color unvisited_color;
     Color being_visited_color;
@@ -146,18 +145,22 @@ struct AlgoSimulationState {
     std::string algo_name;
     ShortestPathResult result;
 
-    int event_now = 0;
-    float next_event_timer = 0;
+    int event_now;
+    float next_event_timer;
+
+    Button dijkstra_button;
+    Button a_star_button;
+    Button double_dijkstra_button;
+    
 };
 
 void raylib_visualization(ShortestPathResult result, const Graph& graph, std::string algo) {
     vector<Vector2> positions = compute_positions(graph.coordinates);
     InitWindow(1920, 1200, "transport algorithm visualization");
 
-    AlgoSimulationState sim_state{
+    vector<AlgoSimulationState> sim_states{{
         Vector2{50, 50},
-        Vector2{1400, 1400},
-        10,
+        Vector2{700, 700},
 
         GRAY,
         GREEN,
@@ -173,48 +176,82 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         result,
 
         0,
-        0
-    };
+        0,
+
+        createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
+        createButton(0, 0.50, 0.21, 0.03, "A*", 15),
+        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15)
+    },
+    {
+        Vector2{750, 50},
+        Vector2{700, 700},
+
+        GRAY,
+        GREEN,
+        BLACK,
+    
+        vector<bool>(graph.num_nodes(), false),
+        vector<bool>(graph.num_edges(), false),
+        vector<Color>(graph.num_nodes()),
+        vector<float>(graph.num_nodes()),
+        vector<Color>(graph.num_edges()),
+        vector<float>(graph.num_edges()),
+        algo,
+        result,
+
+        0,
+        0,
+
+        createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
+        createButton(0, 0.50, 0.21, 0.03, "A*", 15),
+        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15)
+    }    
+};
 
     uint64_t start_node = 0;
     uint64_t end_node = 0;
     float frequency = 7;
+    float path_width = 10;
     int64_t source_picked = -1;
     int64_t target_picked = -1;
 
-    for (int i = 0; i < graph.num_nodes(); i += 1) {
-        sim_state.node_color[i] = sim_state.unvisited_color;
-        sim_state.node_radius[i] = 1;
-    }
-    for (int i = 0; i < graph.num_edges(); i += 1) {
-        sim_state.edge_color[i] = sim_state.unvisited_color;
-        sim_state.edge_width[i] = 0.6;
-    }
-    for (auto [v, eid]: sim_state.result.path){
-        sim_state.is_path_edge[eid] = true;
-    }
-
-    auto reset_visualization = [&](uint64_t source, uint64_t target){
-        auto algorithm = make_algorithm(sim_state.algo_name);
-        auto result = algorithm->compute(graph, source, target);
-        sim_state.result = result;
-
-        for (int i = 0; i < graph.num_nodes(); ++i) {
+    for (auto& sim_state: sim_states) {
+        for (int i = 0; i < graph.num_nodes(); i += 1) {
             sim_state.node_color[i] = sim_state.unvisited_color;
             sim_state.node_radius[i] = 1;
-            sim_state.vertex_visited[i] = false;
         }
-        for (int i = 0; i < graph.num_edges(); ++i) {
+        for (int i = 0; i < graph.num_edges(); i += 1) {
             sim_state.edge_color[i] = sim_state.unvisited_color;
-            sim_state.edge_width[i]   = 0.6;
-            sim_state.is_path_edge[i] = false;
+            sim_state.edge_width[i] = 0.6;
         }
         for (auto [v, eid]: sim_state.result.path){
             sim_state.is_path_edge[eid] = true;
         }
+    }
 
-        sim_state.event_now = 0;
-        sim_state.next_event_timer = 0;
+    auto reset_visualization = [&](uint64_t source, uint64_t target){
+        for (auto& sim_state: sim_states) {
+            auto algorithm = make_algorithm(sim_state.algo_name);
+            auto result = algorithm->compute(graph, source, target);
+            sim_state.result = result;
+    
+            for (int i = 0; i < graph.num_nodes(); ++i) {
+                sim_state.node_color[i] = sim_state.unvisited_color;
+                sim_state.node_radius[i] = 1;
+                sim_state.vertex_visited[i] = false;
+            }
+            for (int i = 0; i < graph.num_edges(); ++i) {
+                sim_state.edge_color[i] = sim_state.unvisited_color;
+                sim_state.edge_width[i]   = 0.6;
+                sim_state.is_path_edge[i] = false;
+            }
+            for (auto [v, eid]: sim_state.result.path){
+                sim_state.is_path_edge[eid] = true;
+            }
+            sim_state.event_now = 0;
+            sim_state.next_event_timer = 0;
+        }
+
         start_node = source;
         end_node = target;
         source_picked = -1;
@@ -222,7 +259,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     };
 
     // We may not need to do it incrementally don't now yet though.
-    auto process_events_tick = [&]() {
+    auto process_events_tick = [&](AlgoSimulationState& sim_state) {
         while(sim_state.event_now < sim_state.result.visualization_events.size()) {
             auto event = sim_state.result.visualization_events[sim_state.event_now];
             sim_state.event_now += 1;
@@ -254,49 +291,66 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                     return;
             }
         }
+    
     };
 
     auto closest_point_idx = [&](Vector2 screen_pos) {
-        float min_dist = Vector2DistanceSqr(screen_pos, sim_state.origin + positions[0] * sim_state.scale);
+        float min_dist = Vector2DistanceSqr(screen_pos, sim_states[0].origin + positions[0] * sim_states[0].scale);
         uint64_t min_idx = 0;
-        for (int i = 1; i < positions.size(); ++i) {
-            auto pos = sim_state.origin + positions[i] * sim_state.scale;
-            auto dist = Vector2DistanceSqr(screen_pos, pos);
-            if (dist < min_dist) {
-                min_dist = dist;
-                min_idx = i;
+        for (auto& sim_state: sim_states) {
+            for (int i = 1; i < positions.size(); ++i) {
+                auto pos = sim_state.origin + positions[i] * sim_state.scale;
+                auto dist = Vector2DistanceSqr(screen_pos, pos);
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    min_idx = i;
+                }
             }
         }
         return min_idx;
     };
 
-    Button dijkstra_button          = createButton(50, 700, 300, 40, "dijkstra");
-    Button a_star_button            = createButton(50, 750, 300, 40, "A*");
-    Button double_dijkstra_button   = createButton(50, 800, 300, 40, "double_dijkstra");
     Slider frequency_slider         = make_slider(400, 700, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
-    Slider path_width_slider        = make_slider(400, 750, 250, 40, "PATH WIDTH: %.1f", &sim_state.path_width, 0, 30);
+    Slider path_width_slider        = make_slider(400, 750, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 30);
     Button reset_button             = createButton(400, 800, 250, 40, "RESET");
-    
+
+    auto screen_space_button = [](const AlgoSimulationState& sim_state, Button button) {
+        auto new_button = button;
+        new_button.bounds.x = new_button.bounds.x * sim_state.scale.x + sim_state.origin.x;        
+        new_button.bounds.y = new_button.bounds.y * sim_state.scale.y + sim_state.origin.y;        
+        new_button.bounds.width = new_button.bounds.width * sim_state.scale.x;        
+        new_button.bounds.height = new_button.bounds.height * sim_state.scale.y;        
+        return new_button;
+    };
+
     auto draw_ui = [&]() {
-        drawButton(dijkstra_button);
-        drawButton(a_star_button);
-        drawButton(double_dijkstra_button);
+        // GLOBAL UI
         draw_slider(frequency_slider);
         draw_slider(path_width_slider);
         drawButton(reset_button);
-        DrawTextStretched(sim_state.algo_name.c_str(), 150, 680, 30, BLACK);
         DrawFPS(5, 5);
+
+        // PER SIM UI
+        for (auto& sim_state: sim_states) {
+            drawButton(screen_space_button(sim_state, sim_state.dijkstra_button));
+            drawButton(screen_space_button(sim_state, sim_state.a_star_button));
+            drawButton(screen_space_button(sim_state, sim_state.double_dijkstra_button));
+            auto [x, y] = Vector2{0.07, 0.45} * sim_state.scale + sim_state.origin;
+            DrawTextStretched(sim_state.algo_name.c_str(), x, y, 10, BLACK);
+        }
     };
 
     auto handle_ui_logic = [&]() {
-        if (isButtonClicked(dijkstra_button)) {
-            sim_state.algo_name = "dijkstra";
-        }
-        if (isButtonClicked(a_star_button)) {
-            sim_state.algo_name = "A*";
-        }
-        if (isButtonClicked(double_dijkstra_button)) {
-            sim_state.algo_name = "double_dijkstra";
+        for (auto& sim_state: sim_states) {
+            if (isButtonClicked(screen_space_button(sim_state, sim_state.dijkstra_button))) {
+                sim_state.algo_name = "dijkstra";
+            }
+            if (isButtonClicked(screen_space_button(sim_state, sim_state.a_star_button))) {
+                sim_state.algo_name = "A*";
+            }
+            if (isButtonClicked(screen_space_button(sim_state, sim_state.double_dijkstra_button))) {
+                sim_state.algo_name = "double_dijkstra";
+            }
         }
         if (isButtonClicked(reset_button)) {
             reset_visualization(start_node, end_node);
@@ -320,40 +374,45 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         BeginDrawing();
         ClearBackground(WHITE);
 
-        sim_state.next_event_timer -= GetFrameTime();
-        while (sim_state.next_event_timer < 0) {
-            sim_state.next_event_timer += powf(2, -frequency);
-            process_events_tick();
-        }
-
-        // Draw edges
-        for (int i = 0; i < graph.num_nodes(); ++i) {
-            for (int j = 0; j < graph.adj[i].size(); ++j) {
-                auto edge = graph.adj[i][j];
-                auto pos0 = positions[i] * sim_state.scale + sim_state.origin;
-                auto pos1 = positions[edge.to] * sim_state.scale + sim_state.origin;
-                if (sim_state.is_path_edge[edge.id] && (sim_state.vertex_visited[i] || sim_state.vertex_visited[edge.to])) {
-                    DrawLineEx(pos0, pos1, sim_state.path_width, MAROON);
-                    DrawCircleV(pos0, sim_state.path_width / 2, MAROON);
-                } else {
-                    DrawLineEx(pos0, pos1, sim_state.edge_width[edge.id], sim_state.edge_color[edge.id]);
-                }
+        float dt = GetFrameTime();
+        for (auto& sim_state: sim_states) {
+            sim_state.next_event_timer -= dt;
+            while (sim_state.next_event_timer < 0) {
+                sim_state.next_event_timer += powf(2, -frequency);
+                process_events_tick(sim_state);
             }
         }
 
-        // Draw nodes
-        for (int i = 0; i < graph.num_nodes(); ++i) {
-            auto pos = positions[i] * sim_state.scale + sim_state.origin;
-            DrawCircleV(pos, sim_state.node_radius[i], sim_state.node_color[i]);
-        }
-        
-        // Draw start and end node
-        DrawCircleV(positions[start_node] * sim_state.scale + sim_state.origin, 4, BLUE);
-        DrawCircleV(positions[end_node] * sim_state.scale + sim_state.origin, 4, RED);
-        // Draw source and target nodes
-        if (source_picked >= 0) { DrawCircleV(positions[source_picked] * sim_state.scale + sim_state.origin, 8, DARKBLUE); }
+        // Draw edges
+        for (auto& sim_state: sim_states) {
+            for (int i = 0; i < graph.num_nodes(); ++i) {
+                for (int j = 0; j < graph.adj[i].size(); ++j) {
+                    auto edge = graph.adj[i][j];
+                    auto pos0 = positions[i] * sim_state.scale + sim_state.origin;
+                    auto pos1 = positions[edge.to] * sim_state.scale + sim_state.origin;
+                    if (sim_state.is_path_edge[edge.id] && (sim_state.vertex_visited[i] || sim_state.vertex_visited[edge.to])) {
+                        DrawLineEx(pos0, pos1, path_width, MAROON);
+                        DrawCircleV(pos0, path_width / 2, MAROON);
+                    } else {
+                        DrawLineEx(pos0, pos1, sim_state.edge_width[edge.id], sim_state.edge_color[edge.id]);
+                    }
+                }
+            }
+
+            // Draw nodes
+            for (int i = 0; i < graph.num_nodes(); ++i) {
+                auto pos = positions[i] * sim_state.scale + sim_state.origin;
+                DrawCircleV(pos, sim_state.node_radius[i], sim_state.node_color[i]);
+            }
+            
+            // Draw start and end node
+            DrawCircleV(positions[start_node] * sim_state.scale + sim_state.origin, 4, BLUE);
+            DrawCircleV(positions[end_node] * sim_state.scale + sim_state.origin, 4, RED);
+            // Draw source and target nodes
+            if (source_picked >= 0) { DrawCircleV(positions[source_picked] * sim_state.scale + sim_state.origin, 8, DARKBLUE); }
         if (target_picked >= 0) { DrawCircleV(positions[target_picked] * sim_state.scale + sim_state.origin, 8, MAROON); }
-        
+        }
+
         draw_ui();
         EndDrawing();
     }

@@ -7,7 +7,7 @@
 #include <vector>
 
 struct ShortestPathResult {
-  std::vector<int> path;
+  std::vector<std::pair<uint32_t, uint32_t>> path;
   double distance;
   int visited;
   std::vector<VisualizationEvent> visualization_events;

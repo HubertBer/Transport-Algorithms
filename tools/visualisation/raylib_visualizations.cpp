@@ -207,10 +207,10 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         return min_idx;
     };
 
-    Button dijkstra_button = createButton(50, 700, 200, 40, "dijkstra");
-    Button a_star_button = createButton(50, 750, 200, 40, "A*");
-    Button double_dijkstra_button = createButton(50, 800, 200, 40, "double_dijkstra");
-    Button alt_button = createButton(50, 850, 200, 40, "alt");
+    Button dijkstra_button = createButton(50, 650, 200, 40, "dijkstra");
+    Button a_star_button = createButton(50, 700, 200, 40, "A*");
+    Button double_dijkstra_button = createButton(50, 750, 200, 40, "double_dijkstra");
+    Button alt_button = createButton(50, 800, 200, 40, "alt");
     Button faster_button = createButton(300, 700, 150, 40, "FASTER");
     Button slower_button = createButton(300, 750, 150, 40, "SLOWER");
     Button reset_button = createButton(300, 800, 150, 40, "RESET");
@@ -222,7 +222,7 @@ void raylib_visualization(vector<VisualizationEvent> events, const Graph& graph,
         drawButton(faster_button);
         drawButton(slower_button);
         drawButton(reset_button);
-        DrawTextStretched(algo.c_str(), 150, 680, 30, BLACK);
+        DrawTextStretched(algo.c_str(), 150, 620, 30, BLACK);
     };
 
     auto handle_ui_logic = [&]() {

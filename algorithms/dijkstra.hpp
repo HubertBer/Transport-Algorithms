@@ -25,7 +25,8 @@ public:
     auto h = [&](int v) { return heuristic(graph, target, v); };
 
     std::vector<double> dist(graph.num_nodes(), INF);
-    std::vector<int> prev(graph.num_nodes(), -1);
+    std::vector<std::pair<uint32_t, uint32_t>> prev(graph.num_nodes(),
+                                                    {-1, -1});
 
     using P = std::tuple<double, double, int, uint64_t>;
     std::priority_queue<P, std::vector<P>, std::greater<P>> pq;
@@ -57,8 +58,8 @@ public:
         double nd = dist[u] + e.distance;
         if (nd < dist[e.to]) {
           dist[e.to] = nd;
-          prev[e.to] = u;
           pq.push({nd + h(e.to), nd, e.to, e.id});
+          prev[e.to] = {u, e.id};
           visualisation_queue.start_visiting_edge(e.id);
         }
       }
@@ -66,10 +67,11 @@ public:
       visualisation_queue.end_visiting_vertex(u);
     }
 
-    std::vector<int> path;
+    std::vector<std::pair<uint32_t, uint32_t>> path;
     if (dist[target] < INF) {
-      for (int v = target; v != -1; v = prev[v])
-        path.push_back(v);
+      for (auto v = target; prev[v].first != -1; v = prev[v].first) {
+        path.emplace_back(v, prev[v].second);
+      }
       std::reverse(path.begin(), path.end());
     }
 

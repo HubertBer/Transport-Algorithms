@@ -6,6 +6,7 @@
 #include "dijkstra.hpp"
 #include "a_star.hpp"
 #include "double_dijkstra.hpp"
+#include "alt.hpp"
 #include "graph.hpp"
 
 #define RAYGUI_IMPLEMENTATION
@@ -91,13 +92,15 @@ inline bool isButtonClicked(const Button& button) {
     return CheckCollisionPointRec(mouse, button.bounds) && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
 }
 
-std::unique_ptr<Algorithm> make_algorithm(std::string &name) {
+std::unique_ptr<Algorithm> make_algorithm(std::string &name, const Graph &graph) {
     if (name == "dijkstra")
-        return std::make_unique<Dijkstra>();
+        return std::make_unique<Dijkstra>(graph);
     if (name == "A*")
-        return std::make_unique<AStar>();
+        return std::make_unique<AStar>(graph);
     if (name == "double_dijkstra")
-        return std::make_unique<DoubleDijkstra>();
+        return std::make_unique<DoubleDijkstra>(graph);
+    if (name == "alt")
+        return std::make_unique<Alt>(graph);
     throw std::invalid_argument("Unknown algorithm: " + name);
 }
 
@@ -134,6 +137,8 @@ struct AlgoSimulationState {
     Color unvisited_color;
     Color being_visited_color;
     Color visited_color;
+    Color landmark_color;
+
 
     vector<bool> vertex_visited;
     vector<bool> is_path_edge;
@@ -141,7 +146,7 @@ struct AlgoSimulationState {
     vector<float> node_radius;
     vector<Color> edge_color;
     vector<float> edge_width;
-    
+
     std::string algo_name;
     ShortestPathResult result;
 
@@ -151,7 +156,8 @@ struct AlgoSimulationState {
     Button dijkstra_button;
     Button a_star_button;
     Button double_dijkstra_button;
-    
+    Button alt_button;
+
 };
 
 AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, ShortestPathResult result, Vector2 origin, Vector2 scale) {
@@ -162,7 +168,8 @@ AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, S
         GRAY,
         GREEN,
         BLACK,
-    
+        YELLOW,
+
         vector<bool>(n, false),
         vector<bool>(m, false),
         vector<Color>(n),
@@ -177,9 +184,10 @@ AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, S
 
         createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
         createButton(0, 0.50, 0.21, 0.03, "A*", 15),
-        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15)
+        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15),
+        createButton(0, 0.570, 0.21, 0.03, "alt", 15)
     };
-} 
+}
 
 void raylib_visualization(ShortestPathResult result, const Graph& graph, std::string algo) {
     vector<Vector2> positions = compute_positions(graph.coordinates);
@@ -203,7 +211,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
 
     vector<AlgoSimulationState> sim_states{
         make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][0], scales[2]),
-        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][1], scales[2]),    
+        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][1], scales[2]),
     };
 
     uint64_t start_node = 0;
@@ -230,10 +238,11 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     auto reset_visualization = [&](uint64_t source, uint64_t target){
         int idx = 0;
         for (auto& sim_state: sim_states) {
-            auto algorithm = make_algorithm(sim_state.algo_name);
-            auto result = algorithm->compute(graph, source, target);
+            auto algorithm = make_algorithm(sim_state.algo_name, graph);
+            algorithm->precompute();
+            auto result = algorithm->query(source, target);
             sim_state.result = result;
-    
+
             for (int i = 0; i < graph.num_nodes(); ++i) {
                 sim_state.node_color[i] = sim_state.unvisited_color;
                 sim_state.node_radius[i] = 1;
@@ -273,7 +282,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                 case VisualizationEventType::ADD_END_VERTEX:
                     end_node = event.id;
                     break;
-                case VisualizationEventType::START_VISITING_EDGE:    
+                case VisualizationEventType::START_VISITING_EDGE:
                     sim_state.edge_color[event.id] = sim_state.being_visited_color;
                     sim_state.edge_width[event.id] = 2;
                     break;
@@ -291,9 +300,13 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                     sim_state.node_radius[event.id] = 1;
                     // The end of the tick
                     return;
+                case VisualizationEventType::LANDMARK:
+                    sim_state.node_color[event.id] = sim_state.landmark_color;
+                    sim_state.node_radius[event.id] = 10;
+                    break;
             }
         }
-    
+
     };
 
     auto closest_point_idx = [&](Vector2 screen_pos) {
@@ -320,10 +333,10 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
 
     auto screen_space_button = [](const AlgoSimulationState& sim_state, Button button) {
         auto new_button = button;
-        new_button.bounds.x = new_button.bounds.x * sim_state.scale.x + sim_state.origin.x;        
-        new_button.bounds.y = new_button.bounds.y * sim_state.scale.y + sim_state.origin.y;        
-        new_button.bounds.width = new_button.bounds.width * sim_state.scale.x;        
-        new_button.bounds.height = new_button.bounds.height * sim_state.scale.y;        
+        new_button.bounds.x = new_button.bounds.x * sim_state.scale.x + sim_state.origin.x;
+        new_button.bounds.y = new_button.bounds.y * sim_state.scale.y + sim_state.origin.y;
+        new_button.bounds.width = new_button.bounds.width * sim_state.scale.x;
+        new_button.bounds.height = new_button.bounds.height * sim_state.scale.y;
         return new_button;
     };
 
@@ -341,6 +354,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             drawButton(screen_space_button(sim_state, sim_state.dijkstra_button));
             drawButton(screen_space_button(sim_state, sim_state.a_star_button));
             drawButton(screen_space_button(sim_state, sim_state.double_dijkstra_button));
+            drawButton(screen_space_button(sim_state, sim_state.alt_button));
             auto [x, y] = Vector2{0.07, 0.45} * sim_state.scale + sim_state.origin;
             DrawTextStretched(sim_state.algo_name.c_str(), x, y, 10, BLACK);
         }
@@ -357,6 +371,9 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             if (isButtonClicked(screen_space_button(sim_state, sim_state.double_dijkstra_button))) {
                 sim_state.algo_name = "double_dijkstra";
             }
+            if (isButtonClicked(screen_space_button(sim_state, sim_state.alt_button))) {
+                sim_state.algo_name = "alt";
+            }
         }
         if (isButtonClicked(reset_button)) {
             reset_visualization(start_node, end_node);
@@ -364,13 +381,13 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         if (isButtonClicked(add_vis)) {
             if (sim_states.size() < max_simulations) {
                 sim_states.push_back(make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, {}, {}));
-            } 
+            }
             reset_visualization(start_node, end_node);
         }
         if (isButtonClicked(rm_vis)) {
             if (sim_states.size() > 0) {
                 sim_states.pop_back();
-            } 
+            }
             reset_visualization(start_node, end_node);
         }
     };
@@ -422,7 +439,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                 auto pos = positions[i] * sim_state.scale + sim_state.origin;
                 DrawPoly(pos, 3, sim_state.node_radius[i], 0, sim_state.node_color[i]);
             }
-            
+
             // Draw start and end node
             DrawPoly(positions[start_node] * sim_state.scale + sim_state.origin, 3, 4, 0, BLUE);
             DrawPoly(positions[end_node] * sim_state.scale + sim_state.origin, 3, 4, 0, RED);
@@ -453,7 +470,8 @@ int main(int argc, char *argv[]) {
 
     Graph g = load_graph_from_csv(data);
 
-    auto algorithm = make_algorithm(algo);
+    auto algorithm = make_algorithm(algo, g);
+    algorithm->precompute();
 
     std::cout << "Algorithm : " << algorithm->name() << '\n'
                 << "Nodes     : " << g.num_nodes() << '\n'
@@ -461,7 +479,7 @@ int main(int argc, char *argv[]) {
                 << "Source    : " << source << '\n'
                 << "Target    : " << target << '\n';
 
-    ShortestPathResult result = algorithm->compute(g, source, target);
+    ShortestPathResult result = algorithm->query(source, target);
 
     raylib_visualization(result, g, algo);
     return 0;

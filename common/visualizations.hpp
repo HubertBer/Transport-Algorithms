@@ -10,6 +10,7 @@ enum class VisualizationEventType {
   END_VISITING_VERTEX,
   START_VISITING_EDGE,
   END_VISITING_EDGE,
+  LANDMARK,
 };
 
 struct VisualizationEvent {

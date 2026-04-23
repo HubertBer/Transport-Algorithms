@@ -420,12 +420,12 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             // Draw nodes
             for (int i = 0; i < graph.num_nodes(); ++i) {
                 auto pos = positions[i] * sim_state.scale + sim_state.origin;
-                DrawCircleV(pos, sim_state.node_radius[i], sim_state.node_color[i]);
+                DrawPoly(pos, 3, sim_state.node_radius[i], 0, sim_state.node_color[i]);
             }
             
             // Draw start and end node
-            DrawCircleV(positions[start_node] * sim_state.scale + sim_state.origin, 4, BLUE);
-            DrawCircleV(positions[end_node] * sim_state.scale + sim_state.origin, 4, RED);
+            DrawPoly(positions[start_node] * sim_state.scale + sim_state.origin, 3, 4, 0, BLUE);
+            DrawPoly(positions[end_node] * sim_state.scale + sim_state.origin, 3, 4, 0, RED);
             // Draw source and target nodes
             if (source_picked >= 0) { DrawCircleV(positions[source_picked] * sim_state.scale + sim_state.origin, 8, DARKBLUE); }
         if (target_picked >= 0) { DrawCircleV(positions[target_picked] * sim_state.scale + sim_state.origin, 8, MAROON); }

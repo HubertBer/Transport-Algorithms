@@ -7,6 +7,7 @@
 #include "a_star.hpp"
 #include "double_dijkstra.hpp"
 #include "alt.hpp"
+#include "arc_flags.hpp"
 #include "graph.hpp"
 
 #define RAYGUI_IMPLEMENTATION
@@ -101,6 +102,8 @@ std::unique_ptr<Algorithm> make_algorithm(std::string &name, const Graph &graph)
         return std::make_unique<DoubleDijkstra>(graph);
     if (name == "alt")
         return std::make_unique<Alt>(graph);
+    if (name == "arc_flags")
+        return std::make_unique<ArcFlags>(graph);
     throw std::invalid_argument("Unknown algorithm: " + name);
 }
 
@@ -157,6 +160,7 @@ struct AlgoSimulationState {
     Button a_star_button;
     Button double_dijkstra_button;
     Button alt_button;
+    Button arc_flags_button;
 
 };
 
@@ -185,7 +189,8 @@ AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, S
         createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
         createButton(0, 0.50, 0.21, 0.03, "A*", 15),
         createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15),
-        createButton(0, 0.570, 0.21, 0.03, "alt", 15)
+        createButton(0, 0.570, 0.21, 0.03, "alt", 15),
+        createButton(0, 0.605, 0.21, 0.03, "arc_flags", 15)
     };
 }
 
@@ -355,6 +360,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             drawButton(screen_space_button(sim_state, sim_state.a_star_button));
             drawButton(screen_space_button(sim_state, sim_state.double_dijkstra_button));
             drawButton(screen_space_button(sim_state, sim_state.alt_button));
+            drawButton(screen_space_button(sim_state, sim_state.arc_flags_button));
             auto [x, y] = Vector2{0.07, 0.45} * sim_state.scale + sim_state.origin;
             DrawTextStretched(sim_state.algo_name.c_str(), x, y, 10, BLACK);
         }
@@ -373,6 +379,9 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             }
             if (isButtonClicked(screen_space_button(sim_state, sim_state.alt_button))) {
                 sim_state.algo_name = "alt";
+            }
+            if (isButtonClicked(screen_space_button(sim_state, sim_state.arc_flags_button))) {
+                sim_state.algo_name = "arc_flags";
             }
         }
         if (isButtonClicked(reset_button)) {

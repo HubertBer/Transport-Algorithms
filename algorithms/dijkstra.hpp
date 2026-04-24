@@ -13,14 +13,14 @@ constexpr double INF = std::numeric_limits<double>::infinity();
 
 class Dijkstra : public Algorithm {
   using Heuristic = std::function<double(const Graph &, int, int)>;
+  using EdgePredicate = std::function<bool(int, int)>;
 
 public:
   Dijkstra(const Graph &g) : graph(g) {}
 
   void precompute() override {}
 
-  ShortestPathResult queryHeuristic(int source, int target,
-                                    Heuristic heuristic) const {
+  ShortestPathResult query(int source, int target) const override {
     VisualisationQueue visualisation_queue;
     auto h = [&](int v) { return heuristic(graph, target, v); };
 
@@ -55,6 +55,10 @@ public:
       visualisation_queue.start_visiting_vertex(u);
 
       for (auto &e : graph.adj[u]) {
+        if (!edge_predicate(u, e.to)) {
+          continue;
+        }
+
         double nd = dist[u] + e.distance;
         if (nd < dist[e.to]) {
           dist[e.to] = nd;
@@ -79,12 +83,6 @@ public:
                                 [](double d) { return d < INF; });
     return {path, dist[target], visited, visualisation_queue.events};
   }
-
-  ShortestPathResult query(int source, int target) const override {
-    return queryHeuristic(source, target,
-                          [](const Graph &, int, int) { return 0.0; });
-  }
-
   std::vector<double> queryAll(int source) const {
     std::vector<double> dist(graph.num_nodes(), INF);
 
@@ -113,8 +111,14 @@ public:
     return dist;
   }
 
+  void addHeuristic(Heuristic h) { heuristic = h; }
+
+  void addEdgePredicate(EdgePredicate p) { edge_predicate = p; }
+
   std::string name() const override { return "dijkstra"; }
 
 private:
   const Graph &graph;
+  Heuristic heuristic = [](const Graph &, int, int) { return 0.0; };
+  EdgePredicate edge_predicate = [](int, int) { return true; };
 };

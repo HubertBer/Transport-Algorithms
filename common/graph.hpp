@@ -12,11 +12,22 @@ struct Edge {
   uint64_t id;
 };
 
-inline float GetDistanceInMeters(Vector2 coord1, Vector2 coord2) {
-  const float metersPerDegree = 111132.0f;
-  Vector2 v1 = {coord1.x * metersPerDegree, coord1.y * metersPerDegree * 2};
-  Vector2 v2 = {coord2.x * metersPerDegree, coord2.y * metersPerDegree * 2};
-  return Vector2Distance(v1, v2);
+inline double to_radians(double degree) { return degree * (PI / 180.0); }
+
+inline double GetDistanceInMeters(Vector2 coord1, Vector2 coord2) {
+  // https://en.wikipedia.org/wiki/Haversine_formula#Formulation
+  const double R = 6371.0 * 1000.0;
+
+  double p1 = to_radians(coord1.y), p2 = to_radians(coord2.y);
+  double dp = to_radians(coord2.y - coord1.y),
+         dl = to_radians(coord2.x - coord1.x);
+
+  double h = std::pow(std::sin(dp / 2.0), 2) +
+             std::cos(p1) * std::cos(p2) * std::pow(std::sin(dl / 2.0), 2);
+
+  double theta = 2.0 * std::atan2(std::sqrt(h), std::sqrt(1.0 - h));
+
+  return R * theta;
 }
 
 struct Graph {

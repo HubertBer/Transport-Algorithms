@@ -13,7 +13,7 @@ constexpr double INF = std::numeric_limits<double>::infinity();
 
 class Dijkstra : public Algorithm {
   using Heuristic = std::function<double(const Graph &, int, int)>;
-  using EdgePredicate = std::function<bool(int, int)>;
+  using EdgePredicate = std::function<bool(int, int, uint64_t)>;
 
 public:
   Dijkstra(const Graph &g) : graph(g) {}
@@ -55,7 +55,7 @@ public:
       visualisation_queue.start_visiting_vertex(u);
 
       for (auto &e : graph.adj[u]) {
-        if (!edge_predicate(u, e.to)) {
+        if (!edge_predicate(u, e.to, e.id)) {
           continue;
         }
 
@@ -120,5 +120,5 @@ public:
 private:
   const Graph &graph;
   Heuristic heuristic = [](const Graph &, int, int) { return 0.0; };
-  EdgePredicate edge_predicate = [](int, int) { return true; };
+  EdgePredicate edge_predicate = [](int, int, uint64_t) { return true; };
 };

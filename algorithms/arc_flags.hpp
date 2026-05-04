@@ -44,11 +44,11 @@ public:
     Dijkstra dijkstra_rev(graph_rev);
 
     std::unordered_set<int> boundary;
+    flags.assign(graph.num_edges(), std::vector<bool>(region_count, false));
     for (int u = 0; u < graph.num_nodes(); ++u) {
       for (const auto &e : graph.adj[u]) {
         int v = e.to;
-        flags[{u, v}].assign(region_count, false);
-        flags[{u, v}][regions[v]] = true;
+        flags[e.id][regions[v]] = true;
         if (regions[u] != regions[v])
           boundary.insert(v);
       }
@@ -64,18 +64,18 @@ public:
           if (dist[v] == std::numeric_limits<double>::max())
             continue;
           if (std::abs(dist[u] - dist[v] - e.distance) < 1e-9)
-            flags[{u, v}][regions[b]] = true;
+            flags[e.id][regions[b]] = true;
         }
       }
     }
   }
 
   ShortestPathResult query(int source, int target) const override {
-    auto edge_predicate = [&](int u, int v) {
+    auto edge_predicate = [&](int u, int v, uint64_t id) -> bool {
       if (regions[u] == regions[target]) {
         return true;
       }
-      return flags.at({u, v}).at(regions[target]);
+      return flags.at(id).at(regions[target]);
     };
 
     Dijkstra dijkstra(graph);
@@ -90,5 +90,5 @@ public:
 private:
   const Graph &graph;
   std::vector<int> regions;
-  std::map<std::pair<int, int>, std::vector<bool>> flags;
+  std::vector<std::vector<bool>> flags;
 };

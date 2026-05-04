@@ -86,12 +86,14 @@ public:
     };
 
     Dijkstra dijkstra(graph);
-    auto result = dijkstra.queryHeuristic(source, target, heuristic);
+    dijkstra.addHeuristic(heuristic);
+    auto result = dijkstra.query(source, target);
 
     std::vector<VisualizationEvent> events(landmarks.size() +
                                            result.visualization_events.size());
     for (int i = 0; i < landmarks.size(); ++i) {
-      events[i] = {VisualizationEventType::LANDMARK, static_cast<uint64_t>(landmarks[i])};
+      events[i] = {VisualizationEventType::LANDMARK,
+                   static_cast<uint64_t>(landmarks[i])};
     }
     for (int i = 0; i < result.visualization_events.size(); ++i) {
       events[landmarks.size() + i] = result.visualization_events[i];

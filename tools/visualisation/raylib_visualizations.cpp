@@ -231,10 +231,10 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         0, 1400, 700, 600, 600
     };
     vector<float> min_scales{
-        0, 1000, 500, 400, 400
+        0, 1000, 300, 200, 200
     };
     vector<float> max_scales{
-        0, 2000, 1000, 800, 800
+        0, 3000, 1600, 1400, 1400
     };
 
     vector<std::unique_ptr<Algorithm>> precomputed_algorithms;
@@ -260,14 +260,15 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, map_scales[2], 1),
     };
 
-    Slider x_offset_slider          = make_slider(1200, 500, 250, 40, "X OFFSET: %.1f", &offset.x, 500, 900);
-    Slider y_offset_slider          = make_slider(1200, 550, 250, 40, "Y OFFSET: %.1f", &offset.y, 200, 600);
+    Slider x_offset_slider          = make_slider(1200, 500, 250, 40, "X OFFSET: %.1f", &offset.x, 200, 1800);
+    Slider y_offset_slider          = make_slider(1200, 550, 250, 40, "Y OFFSET: %.1f", &offset.y, 100, 1200);
     Slider map_scale_slider         = make_slider(1200, 600, 250, 40, "MAP SCALE: %.1f", &map_scales[2], min_scales[2], max_scales[2]);
     Slider frequency_slider         = make_slider(1200, 650, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
     Slider path_width_slider        = make_slider(1200, 700, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 15);
     Button reset_button             = createButton(1200, 750, 250, 40, "RESET");
     Button add_vis                  = createButton(1200, 800, 80, 40, "NEW");
     Button rm_vis                   = createButton(1300, 800, 80, 40, "RM");
+    bool show_ui = true;
 
     for (auto& sim_state: sim_states) {
         for (int i = 0; i < graph.num_nodes(); i += 1) {
@@ -383,6 +384,9 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     };
 
     auto draw_ui = [&]() {
+        if (!show_ui) {
+            return;
+        }
         // GLOBAL UI
         draw_slider(x_offset_slider);
         draw_slider(y_offset_slider);
@@ -424,16 +428,16 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                 sim_state.algo_name = "arc_flags";
             }
         }
-        if (isButtonClicked(reset_button)) {
+        if (isButtonClicked(reset_button) || IsKeyPressed(KEY_R)) {
             reset_visualization(start_node, end_node);
         }
-        if (isButtonClicked(add_vis)) {
+        if (isButtonClicked(add_vis) || IsKeyPressed(KEY_A)) {
             if (sim_states.size() < max_simulations) {
                 sim_states.push_back(make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, {}, sim_states.size()));
             }
             reset_visualization(start_node, end_node);
         }
-        if (isButtonClicked(rm_vis)) {
+        if (isButtonClicked(rm_vis) || IsKeyPressed(KEY_D)) {
             if (sim_states.size() > 0) {
                 sim_states.pop_back();
             }
@@ -450,6 +454,9 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             Vector2 mouse_pos = GetMousePosition();
             target_picked = closest_point_idx(mouse_pos);
+        }
+        if (IsKeyPressed(KEY_SPACE)) {
+            show_ui = !show_ui;
         }
         if (source_picked >= 0 && target_picked >= 0) {
             reset_visualization(source_picked, target_picked);

@@ -135,7 +135,6 @@ vector<Vector2> compute_positions(vector<Vector2> coordinates) {
 
 struct AlgoSimulationState {
     Vector2 origin;
-    Vector2 scale;
 
     Color unvisited_color;
     Color being_visited_color;
@@ -164,10 +163,9 @@ struct AlgoSimulationState {
 
 };
 
-AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, ShortestPathResult result, Vector2 origin, Vector2 scale) {
+AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, ShortestPathResult result, Vector2 origin, float scale) {
     return {
         origin,
-        scale,
 
         GRAY,
         GREEN,
@@ -206,17 +204,19 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         {{50, 50}, {650, 50}, {50, 500}},
         {{50, 50}, {650, 50}, {50, 500}, {650, 500}},
     };
-    vector<Vector2> scales{
-        {},
-        {1400, 1400},
-        {700, 700},
-        {600, 600},
-        {600, 600},
+    vector<float> map_scales{ 
+        0, 1400, 700, 600, 600
+    };
+    vector<float> min_scales{
+        0, 1000, 500, 400, 400
+    };
+    vector<float> max_scales{
+        0, 2000, 1000, 800, 800
     };
 
     vector<AlgoSimulationState> sim_states{
-        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][0], scales[2]),
-        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][1], scales[2]),
+        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][0], map_scales[2]),
+        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][1], map_scales[2]),
     };
 
     uint64_t start_node = 0;
@@ -225,6 +225,13 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     float path_width = 10;
     int64_t source_picked = -1;
     int64_t target_picked = -1;
+
+    Slider map_scale_slider         = make_slider(1200, 600, 250, 40, "MAP SCALE: %.1f", &map_scales[2], min_scales[2], max_scales[2]);
+    Slider frequency_slider         = make_slider(1200, 650, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
+    Slider path_width_slider        = make_slider(1200, 700, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 30);
+    Button reset_button             = createButton(1200, 750, 250, 40, "RESET");
+    Button add_vis                  = createButton(1200, 800, 80, 40, "NEW");
+    Button rm_vis                   = createButton(1300, 800, 80, 40, "RM");
 
     for (auto& sim_state: sim_states) {
         for (int i = 0; i < graph.num_nodes(); i += 1) {
@@ -264,9 +271,12 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             sim_state.event_now = 0;
             sim_state.next_event_timer = 0;
             sim_state.origin = origins[sim_states.size()][idx];
-            sim_state.scale = scales[sim_states.size()];
             idx += 1;
         }
+
+        map_scale_slider.min_value  = min_scales[sim_states.size()];
+        map_scale_slider.max_value  = max_scales[sim_states.size()];
+        map_scale_slider.value      = &map_scales[sim_states.size()]; 
 
         start_node = source;
         end_node = target;
@@ -315,11 +325,11 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     };
 
     auto closest_point_idx = [&](Vector2 screen_pos) {
-        float min_dist = Vector2DistanceSqr(screen_pos, sim_states[0].origin + positions[0] * sim_states[0].scale);
+        float min_dist = Vector2DistanceSqr(screen_pos, sim_states[0].origin + positions[0] * map_scales[sim_states.size()]);
         uint64_t min_idx = 0;
         for (auto& sim_state: sim_states) {
             for (int i = 1; i < positions.size(); ++i) {
-                auto pos = sim_state.origin + positions[i] * sim_state.scale;
+                auto pos = sim_state.origin + positions[i] * map_scales[sim_states.size()];
                 auto dist = Vector2DistanceSqr(screen_pos, pos);
                 if (dist < min_dist) {
                     min_dist = dist;
@@ -330,23 +340,19 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         return min_idx;
     };
 
-    Slider frequency_slider         = make_slider(1200, 650, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
-    Slider path_width_slider        = make_slider(1200, 700, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 30);
-    Button reset_button             = createButton(1200, 750, 250, 40, "RESET");
-    Button add_vis                  = createButton(1200, 800, 80, 40, "NEW");
-    Button rm_vis                   = createButton(1300, 800, 80, 40, "RM");
-
-    auto screen_space_button = [](const AlgoSimulationState& sim_state, Button button) {
+    auto screen_space_button = [&map_scales, &sim_states](const AlgoSimulationState& sim_state, Button button) {
         auto new_button = button;
-        new_button.bounds.x = new_button.bounds.x * sim_state.scale.x + sim_state.origin.x;
-        new_button.bounds.y = new_button.bounds.y * sim_state.scale.y + sim_state.origin.y;
-        new_button.bounds.width = new_button.bounds.width * sim_state.scale.x;
-        new_button.bounds.height = new_button.bounds.height * sim_state.scale.y;
+        float scale = map_scales[sim_states.size()];
+        new_button.bounds.x = new_button.bounds.x * scale + sim_state.origin.x;
+        new_button.bounds.y = new_button.bounds.y * scale + sim_state.origin.y;
+        new_button.bounds.width = new_button.bounds.width * scale;
+        new_button.bounds.height = new_button.bounds.height * scale;
         return new_button;
     };
 
     auto draw_ui = [&]() {
         // GLOBAL UI
+        draw_slider(map_scale_slider);
         draw_slider(frequency_slider);
         draw_slider(path_width_slider);
         drawButton(reset_button);
@@ -361,7 +367,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             drawButton(screen_space_button(sim_state, sim_state.double_dijkstra_button));
             drawButton(screen_space_button(sim_state, sim_state.alt_button));
             drawButton(screen_space_button(sim_state, sim_state.arc_flags_button));
-            auto [x, y] = Vector2{0.07, 0.45} * sim_state.scale + sim_state.origin;
+            auto [x, y] = Vector2{0.07, 0.45} * map_scales[sim_states.size()] + sim_state.origin;
             DrawTextStretched(sim_state.algo_name.c_str(), x, y, 10, BLACK);
         }
     };
@@ -427,13 +433,14 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             }
         }
 
+        float scale = map_scales[sim_states.size()];
         // Draw edges
         for (auto& sim_state: sim_states) {
             for (int i = 0; i < graph.num_nodes(); ++i) {
                 for (int j = 0; j < graph.adj[i].size(); ++j) {
                     auto edge = graph.adj[i][j];
-                    auto pos0 = positions[i] * sim_state.scale + sim_state.origin;
-                    auto pos1 = positions[edge.to] * sim_state.scale + sim_state.origin;
+                    auto pos0 = positions[i] * scale + sim_state.origin;
+                    auto pos1 = positions[edge.to] * scale + sim_state.origin;
                     if (sim_state.is_path_edge[edge.id] && (sim_state.vertex_visited[i] || sim_state.vertex_visited[edge.to])) {
                         DrawLineEx(pos0, pos1, path_width, MAROON);
                         DrawCircleV(pos0, path_width / 2, MAROON);
@@ -445,16 +452,16 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
 
             // Draw nodes
             for (int i = 0; i < graph.num_nodes(); ++i) {
-                auto pos = positions[i] * sim_state.scale + sim_state.origin;
+                auto pos = positions[i] * scale + sim_state.origin;
                 DrawPoly(pos, 3, sim_state.node_radius[i], 0, sim_state.node_color[i]);
             }
 
             // Draw start and end node
-            DrawPoly(positions[start_node] * sim_state.scale + sim_state.origin, 3, 4, 0, BLUE);
-            DrawPoly(positions[end_node] * sim_state.scale + sim_state.origin, 3, 4, 0, RED);
+            DrawPoly(positions[start_node] * scale + sim_state.origin, 3, 4, 0, BLUE);
+            DrawPoly(positions[end_node] * scale + sim_state.origin, 3, 4, 0, RED);
             // Draw source and target nodes
-            if (source_picked >= 0) { DrawCircleV(positions[source_picked] * sim_state.scale + sim_state.origin, 8, DARKBLUE); }
-        if (target_picked >= 0) { DrawCircleV(positions[target_picked] * sim_state.scale + sim_state.origin, 8, MAROON); }
+            if (source_picked >= 0) { DrawCircleV(positions[source_picked] * scale + sim_state.origin, 8, DARKBLUE); }
+        if (target_picked >= 0) { DrawCircleV(positions[target_picked] * scale + sim_state.origin, 8, MAROON); }
         }
 
         draw_ui();

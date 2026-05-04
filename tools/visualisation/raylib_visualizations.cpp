@@ -103,7 +103,7 @@ std::unique_ptr<Algorithm> make_algorithm(std::string &name, const Graph &graph)
         return std::make_unique<DoubleDijkstra>(graph);
     if (name == "alt")
         return std::make_unique<Alt>(graph);
-    if (name == "arc_flags")
+    if (name == "arc-flags")
         return std::make_unique<ArcFlags>(graph);
     throw std::invalid_argument("Unknown algorithm: " + name);
 }
@@ -176,7 +176,7 @@ std::string algo_name[5] = {
     "A*",
     "double_dijkstra",
     "alt",
-    "arc_flags",
+    "arc-flags",
 };
 
 std::unordered_map<std::string, Algo> algo_id = {
@@ -184,6 +184,7 @@ std::unordered_map<std::string, Algo> algo_id = {
     {"A*",              Algo::A_STAR},
     {"double_dijkstra", Algo::DOUBLE_DIJKSTRA},
     {"alt",             Algo::ALT},
+    {"arc-flags",       Algo::ARC_FLAGS},
 };
 
 AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, ShortestPathResult result, float scale, uint8_t idx) {
@@ -209,7 +210,7 @@ AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, S
         createButton(0, 0.50, 0.28, 0.03, "A*", 15),
         createButton(0, 0.535, 0.28, 0.03, "double_dijkstra", 15),
         createButton(0, 0.570, 0.28, 0.03, "alt", 15),
-        createButton(0, 0.605, 0.21, 0.03, "arc_flags", 15),
+        createButton(0, 0.605, 0.21, 0.03, "arc-flags", 15),
 
         idx
     };
@@ -242,6 +243,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::A_STAR],            graph));
     precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::DOUBLE_DIJKSTRA],   graph));
     precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::ALT],               graph));
+    precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::ARC_FLAGS],         graph));
     for (int i = 0; i < precomputed_algorithms.size(); i += 1) {
         precomputed_algorithms[i]->precompute();
     }
@@ -425,7 +427,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                 sim_state.algo_name = "alt";
             }
             if (isButtonClicked(screen_space_button(sim_state, sim_state.arc_flags_button))) {
-                sim_state.algo_name = "arc_flags";
+                sim_state.algo_name = "arc-flags";
             }
         }
         if (isButtonClicked(reset_button) || IsKeyPressed(KEY_R)) {

@@ -262,7 +262,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     int64_t source_picked = -1;
     int64_t target_picked = -1;
     Vector2 global_origin{50, 50};
-    Vector2 global_ui_offset{50, 50};
+    Vector2 global_ui_offset{50, 0};
 
     vector<AlgoSimulationState> sim_states{
         make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, map_scales[2], 0),
@@ -470,10 +470,10 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         if (source_picked >= 0 && target_picked >= 0) {
             reset_visualization(source_picked, target_picked);
         }
-        if (IsKeyDown(KEY_RIGHT))   global_ui_offset.x += GetFrameTime() * 50;
-        if (IsKeyDown(KEY_LEFT))    global_ui_offset.x -= GetFrameTime() * 50;
-        if (IsKeyDown(KEY_UP))      global_ui_offset.y -= GetFrameTime() * 50;
-        if (IsKeyDown(KEY_DOWN))    global_ui_offset.y += GetFrameTime() * 50;
+        if (IsKeyDown(KEY_RIGHT))   global_ui_offset.x += GetFrameTime() * 100;
+        if (IsKeyDown(KEY_LEFT))    global_ui_offset.x -= GetFrameTime() * 100;
+        if (IsKeyDown(KEY_UP))      global_ui_offset.y -= GetFrameTime() * 100;
+        if (IsKeyDown(KEY_DOWN))    global_ui_offset.y += GetFrameTime() * 100;
 
         BeginDrawing();
         ClearBackground(WHITE);

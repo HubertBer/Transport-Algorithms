@@ -16,6 +16,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 using std::vector;
 struct Button {
@@ -64,7 +65,9 @@ inline Button createButton(float x, float y, float width, float height, const st
     return Button{{x, y, width, height}, label, fontSize, bg, fg};
 }
 
-inline void draw_slider(Slider slider) {
+inline void draw_slider(Slider slider, Vector2 offset = {0, 0}) {
+    slider.bounds.x += offset.x;
+    slider.bounds.y += offset.y;
     GuiSliderBar(slider.bounds, "", "", slider.value, slider.min_value, slider.max_value);
     DrawTextStretched(
         TextFormat(slider.middle_format.c_str(), *slider.value),
@@ -75,21 +78,25 @@ inline void draw_slider(Slider slider) {
     );
 }
 
-inline void drawButton(const Button& button) {
+inline void drawButton(const Button& button, Vector2 offset = {0, 0}) {
     Rectangle scaledBounds = button.bounds;
+    scaledBounds.x += offset.x;
+    scaledBounds.y += offset.y;
     DrawRectangleRec(scaledBounds, button.bgColor);
 
     DrawTextStretched(
         button.label.c_str(),
-        button.bounds.x + button.bounds.width / 2,
-        button.bounds.y + button.bounds.height / 2,
+        offset.x + button.bounds.x + button.bounds.width / 2,
+        offset.y + button.bounds.y + button.bounds.height / 2,
         button.fontSize,
         button.textColor
     );
 }
 
-inline bool isButtonClicked(const Button& button) {
+inline bool isButtonClicked(Button button, Vector2 offset = {0, 0}) {
     Vector2 mouse = GetMousePosition();
+    button.bounds.x += offset.x;
+    button.bounds.y += offset.y;
     return CheckCollisionPointRec(mouse, button.bounds) && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
 }
 
@@ -102,7 +109,7 @@ std::unique_ptr<Algorithm> make_algorithm(std::string &name, const Graph &graph)
         return std::make_unique<DoubleDijkstra>(graph);
     if (name == "alt")
         return std::make_unique<Alt>(graph);
-    if (name == "arc_flags")
+    if (name == "arc-flags")
         return std::make_unique<ArcFlags>(graph);
     throw std::invalid_argument("Unknown algorithm: " + name);
 }
@@ -134,9 +141,6 @@ vector<Vector2> compute_positions(vector<Vector2> coordinates) {
 }
 
 struct AlgoSimulationState {
-    Vector2 origin;
-    Vector2 scale;
-
     Color unvisited_color;
     Color being_visited_color;
     Color visited_color;
@@ -162,13 +166,35 @@ struct AlgoSimulationState {
     Button alt_button;
     Button arc_flags_button;
 
+    uint8_t idx;
 };
 
-AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, ShortestPathResult result, Vector2 origin, Vector2 scale) {
-    return {
-        origin,
-        scale,
+enum Algo {
+    DIJKSTRA,
+    A_STAR,
+    DOUBLE_DIJKSTRA,
+    ALT,
+    ARC_FLAGS,
+};
 
+std::string algo_name[5] = {
+    "dijkstra",
+    "A*",
+    "double_dijkstra",
+    "alt",
+    "arc-flags",
+};
+
+std::unordered_map<std::string, Algo> algo_id = {
+    {"dijkstra",        Algo::DIJKSTRA},
+    {"A*",              Algo::A_STAR},
+    {"double_dijkstra", Algo::DOUBLE_DIJKSTRA},
+    {"alt",             Algo::ALT},
+    {"arc-flags",       Algo::ARC_FLAGS},
+};
+
+AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, ShortestPathResult result, float scale, uint8_t idx) {
+    return {
         GRAY,
         GREEN,
         BLACK,
@@ -186,11 +212,13 @@ AlgoSimulationState make_algo_simulation_state(int n, int m, std::string algo, S
         0,
         0,
 
-        createButton(0, 0.465, 0.21, 0.03, "dijkstra", 15),
-        createButton(0, 0.50, 0.21, 0.03, "A*", 15),
-        createButton(0, 0.535, 0.21, 0.03, "double_dijkstra", 15),
-        createButton(0, 0.570, 0.21, 0.03, "alt", 15),
-        createButton(0, 0.605, 0.21, 0.03, "arc_flags", 15)
+        createButton(0, 0.465, 0.28, 0.03, "dijkstra", 15),
+        createButton(0, 0.50, 0.28, 0.03, "A*", 15),
+        createButton(0, 0.535, 0.28, 0.03, "double_dijkstra", 15),
+        createButton(0, 0.570, 0.28, 0.03, "alt", 15),
+        createButton(0, 0.605, 0.21, 0.03, "arc-flags", 15),
+
+        idx
     };
 }
 
@@ -201,30 +229,55 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     static constexpr int max_simulations = 4;
     vector<vector<Vector2>> origins{
         {},
-        {{50, 50}},
-        {{50, 50}, {750, 50}},
-        {{50, 50}, {650, 50}, {50, 500}},
-        {{50, 50}, {650, 50}, {50, 500}, {650, 500}},
+        {{0, 0}},
+        {{0, 0}, {1, 0}},
+        {{0, 0}, {1, 0}, {0, 1}},
+        {{0, 0}, {1, 0}, {0, 1}, {1, 1}},
     };
-    vector<Vector2> scales{
-        {},
-        {1400, 1400},
-        {700, 700},
-        {600, 600},
-        {600, 600},
+    vector<float> map_scales{ 
+        0, 1400, 700, 600, 600
+    };
+    vector<float> min_scales{
+        0, 1000, 300, 200, 200
+    };
+    vector<float> max_scales{
+        0, 3000, 1600, 1400, 1400
     };
 
-    vector<AlgoSimulationState> sim_states{
-        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][0], scales[2]),
-        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, origins[2][1], scales[2]),
-    };
+    vector<std::unique_ptr<Algorithm>> precomputed_algorithms;
+    precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::DIJKSTRA],          graph));
+    precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::A_STAR],            graph));
+    precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::DOUBLE_DIJKSTRA],   graph));
+    precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::ALT],               graph));
+    precomputed_algorithms.push_back(make_algorithm(algo_name[Algo::ARC_FLAGS],         graph));
+    for (int i = 0; i < precomputed_algorithms.size(); i += 1) {
+        precomputed_algorithms[i]->precompute();
+    }
 
     uint64_t start_node = 0;
     uint64_t end_node = 0;
     float frequency = 7;
-    float path_width = 10;
+    float path_width = 5;
+    Vector2 offset{700, 375};
     int64_t source_picked = -1;
     int64_t target_picked = -1;
+    Vector2 global_origin{50, 50};
+    Vector2 global_ui_offset{50, 0};
+
+    vector<AlgoSimulationState> sim_states{
+        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, map_scales[2], 0),
+        make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, map_scales[2], 1),
+    };
+
+    Slider x_offset_slider          = make_slider(1200, 500, 250, 40, "X OFFSET: %.1f", &offset.x, 200, 1800);
+    Slider y_offset_slider          = make_slider(1200, 550, 250, 40, "Y OFFSET: %.1f", &offset.y, 100, 1200);
+    Slider map_scale_slider         = make_slider(1200, 600, 250, 40, "MAP SCALE: %.1f", &map_scales[2], min_scales[2], max_scales[2]);
+    Slider frequency_slider         = make_slider(1200, 650, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
+    Slider path_width_slider        = make_slider(1200, 700, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 15);
+    Button reset_button             = createButton(1200, 750, 250, 40, "RESET");
+    Button add_vis                  = createButton(1200, 800, 80, 40, "NEW");
+    Button rm_vis                   = createButton(1300, 800, 80, 40, "RM");
+    bool show_ui = true;
 
     for (auto& sim_state: sim_states) {
         for (int i = 0; i < graph.num_nodes(); i += 1) {
@@ -243,10 +296,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     auto reset_visualization = [&](uint64_t source, uint64_t target){
         int idx = 0;
         for (auto& sim_state: sim_states) {
-            auto algorithm = make_algorithm(sim_state.algo_name, graph);
-            algorithm->precompute();
-            auto result = algorithm->query(source, target);
-            sim_state.result = result;
+            sim_state.result = precomputed_algorithms[algo_id[sim_state.algo_name]]->query(source, target);
 
             for (int i = 0; i < graph.num_nodes(); ++i) {
                 sim_state.node_color[i] = sim_state.unvisited_color;
@@ -263,10 +313,12 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             }
             sim_state.event_now = 0;
             sim_state.next_event_timer = 0;
-            sim_state.origin = origins[sim_states.size()][idx];
-            sim_state.scale = scales[sim_states.size()];
             idx += 1;
         }
+
+        map_scale_slider.min_value  = min_scales[sim_states.size()];
+        map_scale_slider.max_value  = max_scales[sim_states.size()];
+        map_scale_slider.value      = &map_scales[sim_states.size()]; 
 
         start_node = source;
         end_node = target;
@@ -315,11 +367,11 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     };
 
     auto closest_point_idx = [&](Vector2 screen_pos) {
-        float min_dist = Vector2DistanceSqr(screen_pos, sim_states[0].origin + positions[0] * sim_states[0].scale);
+        float min_dist = Vector2DistanceSqr(screen_pos, global_origin + positions[0] * map_scales[sim_states.size()]);
         uint64_t min_idx = 0;
         for (auto& sim_state: sim_states) {
             for (int i = 1; i < positions.size(); ++i) {
-                auto pos = sim_state.origin + positions[i] * sim_state.scale;
+                auto pos = origins[sim_states.size()][sim_state.idx] * offset + global_origin + positions[i] * map_scales[sim_states.size()];
                 auto dist = Vector2DistanceSqr(screen_pos, pos);
                 if (dist < min_dist) {
                     min_dist = dist;
@@ -330,28 +382,29 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         return min_idx;
     };
 
-    Slider frequency_slider         = make_slider(1200, 650, 250, 40, "SIM SPEED: %.1f", &frequency, 0, 16);
-    Slider path_width_slider        = make_slider(1200, 700, 250, 40, "PATH WIDTH: %.1f", &path_width, 0, 30);
-    Button reset_button             = createButton(1200, 750, 250, 40, "RESET");
-    Button add_vis                  = createButton(1200, 800, 80, 40, "NEW");
-    Button rm_vis                   = createButton(1300, 800, 80, 40, "RM");
-
-    auto screen_space_button = [](const AlgoSimulationState& sim_state, Button button) {
+    auto screen_space_button = [&](const AlgoSimulationState& sim_state, Button button) {
         auto new_button = button;
-        new_button.bounds.x = new_button.bounds.x * sim_state.scale.x + sim_state.origin.x;
-        new_button.bounds.y = new_button.bounds.y * sim_state.scale.y + sim_state.origin.y;
-        new_button.bounds.width = new_button.bounds.width * sim_state.scale.x;
-        new_button.bounds.height = new_button.bounds.height * sim_state.scale.y;
+        float scale = map_scales[sim_states.size()];
+        new_button.bounds.x = new_button.bounds.x * scale + origins[sim_states.size()][sim_state.idx].x * offset.x + global_origin.x;
+        new_button.bounds.y = new_button.bounds.y * scale + origins[sim_states.size()][sim_state.idx].y * offset.y + global_origin.y;
+        new_button.bounds.width = new_button.bounds.width * scale;
+        new_button.bounds.height = new_button.bounds.height * scale;
         return new_button;
     };
 
     auto draw_ui = [&]() {
+        if (!show_ui) {
+            return;
+        }
         // GLOBAL UI
-        draw_slider(frequency_slider);
-        draw_slider(path_width_slider);
-        drawButton(reset_button);
-        drawButton(add_vis);
-        drawButton(rm_vis);
+        draw_slider(x_offset_slider, global_ui_offset);
+        draw_slider(y_offset_slider, global_ui_offset);
+        draw_slider(map_scale_slider, global_ui_offset);
+        draw_slider(frequency_slider, global_ui_offset);
+        draw_slider(path_width_slider, global_ui_offset);
+        drawButton(reset_button, global_ui_offset);
+        drawButton(add_vis, global_ui_offset);
+        drawButton(rm_vis, global_ui_offset);
         DrawFPS(5, 5);
 
         // PER SIM UI
@@ -361,7 +414,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             drawButton(screen_space_button(sim_state, sim_state.double_dijkstra_button));
             drawButton(screen_space_button(sim_state, sim_state.alt_button));
             drawButton(screen_space_button(sim_state, sim_state.arc_flags_button));
-            auto [x, y] = Vector2{0.07, 0.45} * sim_state.scale + sim_state.origin;
+            auto [x, y] = Vector2{0.07, 0.45} * map_scales[sim_states.size()] + origins[sim_states.size()][sim_state.idx] * offset + global_origin;
             DrawTextStretched(sim_state.algo_name.c_str(), x, y, 10, BLACK);
         }
     };
@@ -381,19 +434,19 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                 sim_state.algo_name = "alt";
             }
             if (isButtonClicked(screen_space_button(sim_state, sim_state.arc_flags_button))) {
-                sim_state.algo_name = "arc_flags";
+                sim_state.algo_name = "arc-flags";
             }
         }
-        if (isButtonClicked(reset_button)) {
+        if (isButtonClicked(reset_button, global_ui_offset) || IsKeyPressed(KEY_R)) {
             reset_visualization(start_node, end_node);
         }
-        if (isButtonClicked(add_vis)) {
+        if (isButtonClicked(add_vis, global_ui_offset) || IsKeyPressed(KEY_A)) {
             if (sim_states.size() < max_simulations) {
-                sim_states.push_back(make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, {}, {}));
+                sim_states.push_back(make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, {}, sim_states.size()));
             }
             reset_visualization(start_node, end_node);
         }
-        if (isButtonClicked(rm_vis)) {
+        if (isButtonClicked(rm_vis, global_ui_offset) || IsKeyPressed(KEY_D)) {
             if (sim_states.size() > 0) {
                 sim_states.pop_back();
             }
@@ -411,9 +464,16 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             Vector2 mouse_pos = GetMousePosition();
             target_picked = closest_point_idx(mouse_pos);
         }
+        if (IsKeyPressed(KEY_SPACE)) {
+            show_ui = !show_ui;
+        }
         if (source_picked >= 0 && target_picked >= 0) {
             reset_visualization(source_picked, target_picked);
         }
+        if (IsKeyDown(KEY_RIGHT))   global_ui_offset.x += GetFrameTime() * 100;
+        if (IsKeyDown(KEY_LEFT))    global_ui_offset.x -= GetFrameTime() * 100;
+        if (IsKeyDown(KEY_UP))      global_ui_offset.y -= GetFrameTime() * 100;
+        if (IsKeyDown(KEY_DOWN))    global_ui_offset.y += GetFrameTime() * 100;
 
         BeginDrawing();
         ClearBackground(WHITE);
@@ -427,13 +487,14 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             }
         }
 
+        float scale = map_scales[sim_states.size()];
         // Draw edges
         for (auto& sim_state: sim_states) {
             for (int i = 0; i < graph.num_nodes(); ++i) {
                 for (int j = 0; j < graph.adj[i].size(); ++j) {
                     auto edge = graph.adj[i][j];
-                    auto pos0 = positions[i] * sim_state.scale + sim_state.origin;
-                    auto pos1 = positions[edge.to] * sim_state.scale + sim_state.origin;
+                    auto pos0 = positions[i] * scale + origins[sim_states.size()][sim_state.idx] * offset + global_origin;
+                    auto pos1 = positions[edge.to] * scale + origins[sim_states.size()][sim_state.idx] * offset + global_origin;
                     if (sim_state.is_path_edge[edge.id] && (sim_state.vertex_visited[i] || sim_state.vertex_visited[edge.to])) {
                         DrawLineEx(pos0, pos1, path_width, MAROON);
                         DrawCircleV(pos0, path_width / 2, MAROON);
@@ -445,16 +506,16 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
 
             // Draw nodes
             for (int i = 0; i < graph.num_nodes(); ++i) {
-                auto pos = positions[i] * sim_state.scale + sim_state.origin;
+                auto pos = positions[i] * scale + origins[sim_states.size()][sim_state.idx] * offset + global_origin;
                 DrawPoly(pos, 3, sim_state.node_radius[i], 0, sim_state.node_color[i]);
             }
 
             // Draw start and end node
-            DrawPoly(positions[start_node] * sim_state.scale + sim_state.origin, 3, 4, 0, BLUE);
-            DrawPoly(positions[end_node] * sim_state.scale + sim_state.origin, 3, 4, 0, RED);
+            DrawPoly(positions[start_node] * scale + origins[sim_states.size()][sim_state.idx] * offset + global_origin, 3, 4, 0, BLUE);
+            DrawPoly(positions[end_node] * scale + origins[sim_states.size()][sim_state.idx] * offset + global_origin, 3, 4, 0, RED);
             // Draw source and target nodes
-            if (source_picked >= 0) { DrawCircleV(positions[source_picked] * sim_state.scale + sim_state.origin, 8, DARKBLUE); }
-        if (target_picked >= 0) { DrawCircleV(positions[target_picked] * sim_state.scale + sim_state.origin, 8, MAROON); }
+            if (source_picked >= 0) { DrawCircleV(positions[source_picked] * scale + origins[sim_states.size()][sim_state.idx] * offset + global_origin, 8, DARKBLUE); }
+        if (target_picked >= 0) { DrawCircleV(positions[target_picked] * scale + origins[sim_states.size()][sim_state.idx] * offset + global_origin, 8, MAROON); }
         }
 
         draw_ui();

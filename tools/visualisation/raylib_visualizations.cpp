@@ -65,7 +65,9 @@ inline Button createButton(float x, float y, float width, float height, const st
     return Button{{x, y, width, height}, label, fontSize, bg, fg};
 }
 
-inline void draw_slider(Slider slider) {
+inline void draw_slider(Slider slider, Vector2 offset = {0, 0}) {
+    slider.bounds.x += offset.x;
+    slider.bounds.y += offset.y;
     GuiSliderBar(slider.bounds, "", "", slider.value, slider.min_value, slider.max_value);
     DrawTextStretched(
         TextFormat(slider.middle_format.c_str(), *slider.value),
@@ -76,21 +78,25 @@ inline void draw_slider(Slider slider) {
     );
 }
 
-inline void drawButton(const Button& button) {
+inline void drawButton(const Button& button, Vector2 offset = {0, 0}) {
     Rectangle scaledBounds = button.bounds;
+    scaledBounds.x += offset.x;
+    scaledBounds.y += offset.y;
     DrawRectangleRec(scaledBounds, button.bgColor);
 
     DrawTextStretched(
         button.label.c_str(),
-        button.bounds.x + button.bounds.width / 2,
-        button.bounds.y + button.bounds.height / 2,
+        offset.x + button.bounds.x + button.bounds.width / 2,
+        offset.y + button.bounds.y + button.bounds.height / 2,
         button.fontSize,
         button.textColor
     );
 }
 
-inline bool isButtonClicked(const Button& button) {
+inline bool isButtonClicked(Button button, Vector2 offset = {0, 0}) {
     Vector2 mouse = GetMousePosition();
+    button.bounds.x += offset.x;
+    button.bounds.y += offset.y;
     return CheckCollisionPointRec(mouse, button.bounds) && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
 }
 
@@ -256,6 +262,7 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
     int64_t source_picked = -1;
     int64_t target_picked = -1;
     Vector2 global_origin{50, 50};
+    Vector2 global_ui_offset{50, 50};
 
     vector<AlgoSimulationState> sim_states{
         make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, map_scales[2], 0),
@@ -390,14 +397,14 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
             return;
         }
         // GLOBAL UI
-        draw_slider(x_offset_slider);
-        draw_slider(y_offset_slider);
-        draw_slider(map_scale_slider);
-        draw_slider(frequency_slider);
-        draw_slider(path_width_slider);
-        drawButton(reset_button);
-        drawButton(add_vis);
-        drawButton(rm_vis);
+        draw_slider(x_offset_slider, global_ui_offset);
+        draw_slider(y_offset_slider, global_ui_offset);
+        draw_slider(map_scale_slider, global_ui_offset);
+        draw_slider(frequency_slider, global_ui_offset);
+        draw_slider(path_width_slider, global_ui_offset);
+        drawButton(reset_button, global_ui_offset);
+        drawButton(add_vis, global_ui_offset);
+        drawButton(rm_vis, global_ui_offset);
         DrawFPS(5, 5);
 
         // PER SIM UI
@@ -430,16 +437,16 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
                 sim_state.algo_name = "arc-flags";
             }
         }
-        if (isButtonClicked(reset_button) || IsKeyPressed(KEY_R)) {
+        if (isButtonClicked(reset_button, global_ui_offset) || IsKeyPressed(KEY_R)) {
             reset_visualization(start_node, end_node);
         }
-        if (isButtonClicked(add_vis) || IsKeyPressed(KEY_A)) {
+        if (isButtonClicked(add_vis, global_ui_offset) || IsKeyPressed(KEY_A)) {
             if (sim_states.size() < max_simulations) {
                 sim_states.push_back(make_algo_simulation_state(graph.num_nodes(), graph.num_edges(), algo, result, {}, sim_states.size()));
             }
             reset_visualization(start_node, end_node);
         }
-        if (isButtonClicked(rm_vis) || IsKeyPressed(KEY_D)) {
+        if (isButtonClicked(rm_vis, global_ui_offset) || IsKeyPressed(KEY_D)) {
             if (sim_states.size() > 0) {
                 sim_states.pop_back();
             }
@@ -463,6 +470,10 @@ void raylib_visualization(ShortestPathResult result, const Graph& graph, std::st
         if (source_picked >= 0 && target_picked >= 0) {
             reset_visualization(source_picked, target_picked);
         }
+        if (IsKeyDown(KEY_RIGHT))   global_ui_offset.x += GetFrameTime() * 50;
+        if (IsKeyDown(KEY_LEFT))    global_ui_offset.x -= GetFrameTime() * 50;
+        if (IsKeyDown(KEY_UP))      global_ui_offset.y -= GetFrameTime() * 50;
+        if (IsKeyDown(KEY_DOWN))    global_ui_offset.y += GetFrameTime() * 50;
 
         BeginDrawing();
         ClearBackground(WHITE);
